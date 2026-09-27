@@ -15,6 +15,6 @@ BugReports: https://github.com/Marlenildo/ranova-app/issues
 Encoding: UTF-8
 Language: pt-BR
 Depends: R (>= 4.1.0)
-Imports: shiny (>= 1.7.0), ranova (>= 0.4.4), rhandsontable, readxl, writexl,
+Imports: shiny (>= 1.7.0), ranova (>= 0.4.5), rhandsontable, readxl, writexl,
     ggplot2, ggpubr, kableExtra, knitr, htmltools
 Remotes: Marlenildo/ranova

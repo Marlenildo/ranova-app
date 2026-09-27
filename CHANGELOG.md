@@ -8,6 +8,11 @@ e o projeto usa [Versionamento Semântico](https://semver.org/lang/pt-BR/):
 
 ## [Não lançado]
 
+### Alterado
+
+- Passa a exigir o pacote `ranova` 0.4.5, em que a tabela de ANOVA mostra
+  `Resíduo` e deixa GL em branco na linha do CV; `manifest.json` atualizado.
+
 ## [1.0.0] - 2026-09-27
 
 Primeira versão, com o nome **Ranova**.

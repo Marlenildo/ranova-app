@@ -2623,7 +2623,7 @@
       "description": {
         "Package": "ranova",
         "Title": "Analise De Variancia Para Experimentos Em DIC e DBC",
-        "Version": "0.4.4",
+        "Version": "0.4.5",
         "Authors@R": "\n    person(given = \"Marlenildo\",\n           family = \"Ferreira Melo\",\n           role = c(\"aut\", \"cre\"),\n           email = \"marlenildo@example.com\")",
         "Description": "Biblioteca para analise de variancia (ANOVA) em experimentos\n    com suporte a delineamento inteiramente casualizado (DIC) e delineamento\n    em blocos casualizados (DBC), incluindo modelos fatoriais, diagnostico de\n    pressupostos, tabelas de medias, graficos e utilitarios para relatorios.",
         "License": "MIT + file LICENSE",
@@ -2639,16 +2639,16 @@
         "RemoteRepo": "ranova",
         "RemoteUsername": "Marlenildo",
         "RemoteRef": "HEAD",
-        "RemoteSha": "8a0ab8b9ca7cddc83cc0404f6395046fd79b6ac0",
+        "RemoteSha": "755c77c484396c260f959070d403f3816ece927d",
         "GithubRepo": "ranova",
         "GithubUsername": "Marlenildo",
         "GithubRef": "HEAD",
-        "GithubSHA1": "8a0ab8b9ca7cddc83cc0404f6395046fd79b6ac0",
+        "GithubSHA1": "755c77c484396c260f959070d403f3816ece927d",
         "NeedsCompilation": "no",
-        "Packaged": "2026-09-27 04:07:21 UTC; root",
+        "Packaged": "2026-09-27 04:29:27 UTC; root",
         "Author": "Marlenildo Ferreira Melo [aut, cre]",
         "Maintainer": "Marlenildo Ferreira Melo <marlenildo@example.com>",
-        "Built": "R 4.3.3; ; 2026-09-27 04:07:21 UTC; unix"
+        "Built": "R 4.3.3; ; 2026-09-27 04:29:27 UTC; unix"
       }
     },
     "rappdirs": {
