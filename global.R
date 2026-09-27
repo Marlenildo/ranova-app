@@ -623,6 +623,20 @@ rotulo_grafico <- function(prep, x, rotulos = NULL) {
 
 # Cores das barras: `estilo$modo` "unica" (todas iguais) ou "niveis" (uma por nível do fator),
 # com paleta pronta ou cores escolhidas (`estilo$cor_unica` e `estilo$cores[[fator]]`).
+# Função de rótulos dos níveis de um fator: nomes digitados pelo usuário ou os originais.
+rotulos_niveis <- function(prep, fator, rotulos = NULL) {
+  niveis <- levels(prep$dados[[fator]])
+  novos <- rotulos[[paste0("niveis:", fator)]]
+  if (length(novos) == length(niveis)) {
+    novos <- trimws(novos)
+    niveis_saida <- ifelse(nzchar(novos), novos, niveis)
+  } else {
+    niveis_saida <- niveis
+  }
+  mapa <- stats::setNames(niveis_saida, niveis)
+  function(x) unname(ifelse(x %in% names(mapa), mapa[x], x))
+}
+
 grafico_medias <- function(prep, opcoes, resposta, fator, rotulos = NULL, base_size = 13, estilo = NULL) {
   estilo <- estilo %||% list()
   medias <- silenciar(medias_fatorial_cld(
@@ -658,6 +672,7 @@ grafico_medias <- function(prep, opcoes, resposta, fator, rotulos = NULL, base_s
     geom_errorbar(aes(ymin = .data$media - .data$se, ymax = .data$media + .data$se), width = 0.18, color = CORES_APP$ink) +
     geom_text(aes(y = .data$media + .data$se, label = .data$grupo), vjust = -0.6, size = base_size * 0.33, fontface = "bold", color = CORES_APP$ink) +
     scale_y_continuous(expand = expansion(mult = c(0, 0.12)), limits = c(0, topo * 1.12)) +
+    scale_x_discrete(labels = rotulos_niveis(prep, fator, rotulos)) +
     labs(x = rotulo_grafico(prep, fator, rotulos), y = rotulo_grafico(prep, resposta, rotulos)) +
     tema_ranova(base_size)
 }
@@ -696,8 +711,12 @@ grafico_interacao <- function(prep, resposta, fator_x, fator_traco, rotulos = NU
   tipo <- estilo$tipo %||% "linhas"
   niveis_traco <- levels(prep$dados[[fator_traco]])
   cores <- cores_niveis(niveis_traco, estilo$paleta %||% "ranova", estilo$cores[[fator_traco]])
-  rotulos_eixos <- labs(x = rotulo_grafico(prep, fator_x, rotulos), y = rotulo_grafico(prep, resposta, rotulos),
-                        color = rotulo_grafico(prep, fator_traco, rotulos), fill = rotulo_grafico(prep, fator_traco, rotulos))
+  rotulos_eixos <- list(
+    labs(x = rotulo_grafico(prep, fator_x, rotulos), y = rotulo_grafico(prep, resposta, rotulos),
+         color = rotulo_grafico(prep, fator_traco, rotulos), fill = rotulo_grafico(prep, fator_traco, rotulos)),
+    scale_x_discrete(labels = rotulos_niveis(prep, fator_x, rotulos))
+  )
+  nomes_traco <- rotulos_niveis(prep, fator_traco, rotulos)
 
   if (identical(tipo, "barras")) {
     opcoes <- opcoes %||% list(alpha = 0.05, tipo_se = "modelo")
@@ -713,7 +732,7 @@ grafico_interacao <- function(prep, resposta, fator_x, fator_traco, rotulos = NU
         geom_errorbar(aes(ymin = .data$media - .data$se, ymax = .data$media + .data$se), position = desvio, width = 0.2, color = CORES_APP$ink) +
         geom_text(aes(y = .data$media + .data$se, label = .data$letra), position = desvio, vjust = -0.55,
                   size = base_size * 0.27, fontface = "bold", color = CORES_APP$ink) +
-        scale_fill_manual(values = cores) +
+        scale_fill_manual(values = cores, labels = nomes_traco) +
         scale_y_continuous(expand = expansion(mult = c(0, 0.14)), limits = c(0, topo * 1.14)) +
         rotulos_eixos +
         tema_ranova(base_size)
@@ -726,7 +745,7 @@ grafico_interacao <- function(prep, resposta, fator_x, fator_traco, rotulos = NU
     geom_line(linewidth = 0.8) +
     geom_errorbar(aes(ymin = .data$emmean - .data$SE, ymax = .data$emmean + .data$SE), width = 0.12) +
     geom_point(size = base_size * 0.22) +
-    scale_color_manual(values = cores) +
+    scale_color_manual(values = cores, labels = nomes_traco) +
     rotulos_eixos +
     tema_ranova(base_size)
 }

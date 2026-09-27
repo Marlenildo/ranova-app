@@ -489,6 +489,7 @@ server <- function(input, output, session) {
     abas[[length(abas) + 1]] <- tabPanel(
       title = "Gráficos",
       value = "graficos",
+      uiOutput("nomes_graficos"),
       div(class = "titulo-grafico", "Médias com letras"),
       div(
         class = "grade-campos",
@@ -698,8 +699,11 @@ server <- function(input, output, session) {
     res <- resultado()
     if (is.null(res)) return(list())
     ids <- c(res$prep$respostas, res$prep$fatores)
-    valores <- lapply(ids, function(id) input[[paste0("rotulo_", id)]] %||% "")
-    stats::setNames(valores, ids)
+    valores <- stats::setNames(lapply(ids, function(id) input[[paste0("rotulo_", id)]] %||% ""), ids)
+    for (f in res$prep$fatores) {
+      valores[[paste0("niveis:", f)]] <- vapply(seq_len(nlevels(res$prep$dados[[f]])), function(i) input[[paste0("nivel_", f, "_", i)]] %||% "", character(1))
+    }
+    valores
   })
 
   estilo_interacao <- reactive({
@@ -807,29 +811,42 @@ server <- function(input, output, session) {
         )
       ),
       div(class = "explicacao", "A ordem das variáveis no campo acima define a posição e a letra de cada gráfico. Para mudar a ordem, remova (×) e selecione de novo. Tipo e cores seguem o que foi escolhido na aba Gráficos dos resultados."),
-      uiOutput("painel_nomes"),
+      div(class = "explicacao", icon("pen"), " Os nomes de variáveis, fatores e níveis são editados em Resultados → Gráficos e valem também para este painel."),
       div(class = "area-painel", plotOutput("painel_grafico", height = "auto")),
       controles_exportacao("painel", largura = 17, altura = 14),
       checkboxInput("painel_no_pdf", "Incluir este painel no relatório PDF", TRUE)
     )
   })
 
-  output$painel_nomes <- renderUI({
+  # Nomes de variáveis, fatores e níveis usados em todos os gráficos, no painel e no PDF.
+  output$nomes_graficos <- renderUI({
     res <- resultado()
     req(res)
     prep <- res$prep
-    fatores_usados <- if (identical(input$painel_tipo, "interacao")) c(input$painel_fator_x, input$painel_fator_traco) else input$painel_fator
-    ids <- c(input$painel_variaveis, fatores_usados)
-    ids <- ids[ids %in% c(prep$respostas, prep$fatores)]
-    req(length(ids) > 0)
-    div(
+    campo <- function(id, rotulo_campo, padrao) {
+      textInput(id, rotulo_campo, value = isolate(input[[id]]) %||% padrao, width = "100%")
+    }
+    tags$details(
       class = "caixa-nomes",
-      div(class = "titulo-legenda", icon("pen"), " Nomes nos gráficos (eixos e legendas)"),
-      div(class = "grade-nomes", lapply(ids, function(id) {
-        textInput(paste0("rotulo_", id), rotulo(prep, id), value = isolate(input[[paste0("rotulo_", id)]]) %||% rotulo(prep, id), width = "100%")
-      }))
+      tags$summary(class = "titulo-legenda", icon("pen"), " Nomes nos gráficos: variáveis, fatores e níveis (opcional)"),
+      div(class = "explicacao", "Altere como os nomes aparecem nos eixos, nas legendas e nos rótulos dos níveis. Valem para os gráficos abaixo, o painel de gráficos e o PDF; a planilha e as tabelas não mudam."),
+      div(class = "grupo-nomes",
+        div(class = "subtitulo-nomes", "Variáveis resposta"),
+        div(class = "grade-nomes", lapply(prep$respostas, function(v) campo(paste0("rotulo_", v), rotulo(prep, v), rotulo(prep, v))))
+      ),
+      lapply(prep$fatores, function(f) {
+        niveis <- levels(prep$dados[[f]])
+        div(class = "grupo-nomes",
+          div(class = "subtitulo-nomes", paste("Fator", rotulo(prep, f))),
+          div(class = "grade-nomes",
+            campo(paste0("rotulo_", f), "Nome do fator", rotulo(prep, f)),
+            lapply(seq_along(niveis), function(i) campo(paste0("nivel_", f, "_", i), paste("Nível", niveis[i]), niveis[i]))
+          )
+        )
+      })
     )
   })
+
 
   painel_atual <- reactive({
     res <- resultado()

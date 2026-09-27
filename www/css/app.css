@@ -116,3 +116,8 @@ input[type="checkbox"],input[type="radio"] { width:16px; height:16px; margin:0 7
 .caixa-substituir { background:#fffaf0; border:1px solid #efdcb8; border-radius:10px; padding:12px 14px; margin-top:12px; }
 .caixa-substituir .checkbox { margin:3px 0; }
 .caixa-substituicoes ul { margin:4px 0 8px; padding-left:18px; }
+details.caixa-nomes > summary { cursor:pointer; list-style:none; margin-bottom:0; }
+details.caixa-nomes > summary::-webkit-details-marker { display:none; }
+details.caixa-nomes > summary::after { content:"▾"; margin-left:6px; color:var(--muted); }
+details.caixa-nomes[open] > summary { margin-bottom:8px; }
+.grupo-nomes { margin-top:10px; }.subtitulo-nomes { color:var(--navy); font-weight:800; font-size:12.5px; margin-bottom:4px; }

@@ -8,6 +8,21 @@ e o projeto usa [Versionamento Semântico](https://semver.org/lang/pt-BR/):
 
 ## [Não lançado]
 
+## [1.6.0] - 2026-09-27
+
+### Adicionado
+
+- **Nomes dos níveis dos fatores** editáveis nos gráficos (por exemplo, "0" →
+  "Controle"), junto com os nomes das variáveis e dos fatores, numa caixa
+  recolhível em Resultados → Gráficos. Valem para eixos, legendas, painel e
+  PDF; a planilha e as tabelas continuam com os nomes originais.
+
+### Alterado
+
+- Os nomes nos gráficos saem do cartão do painel e passam para a aba Gráficos,
+  valendo para todas as variáveis e fatores (antes, só para os escolhidos no
+  painel).
+
 ## [1.5.0] - 2026-09-27
 
 ### Adicionado
