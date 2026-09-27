@@ -82,6 +82,13 @@ ui <- fluidPage(
             uiOutput("seletor_aba"),
             downloadButton("baixar_modelo", "Baixar planilha modelo", icon = icon("download"), class = "btn-secundario btn-bloco")
           ),
+          tabPanel("Colar", value = "colar",
+            div(class = "explicacao espaco-topo", HTML("Copie as células no Excel, planilha ou outra fonte e cole abaixo: <b>uma linha por parcela</b>, com colunas separadas por tabulação. Vírgula decimal, como <b>28,4</b>, é aceita.")),
+            div(class = "paste-box", textAreaInput("dados_colados", NULL, width = "100%", rows = 8,
+              placeholder = "Bloco\tDose\tCultivar\tProdutividade\n1\t0\tA\t28,4\n1\t50\tA\t31,9\n1\t0\tB\t33,1\n...")),
+            checkboxInput("colado_cabecalho", "A primeira linha contém os nomes das colunas", TRUE),
+            actionButton("importar_colados", "Usar dados colados", icon = icon("paste"), class = "btn-adicionar btn-bloco")
+          ),
           tabPanel("Exemplo", value = "exemplo",
             div(class = "explicacao espaco-topo", "Experimento fictício de melão em blocos casualizados (DBC): 4 blocos, fatorial 4 doses × 2 cultivares e três variáveis resposta."),
             actionButton("carregar_exemplo", "Carregar exemplo", icon = icon("flask"), class = "btn-adicionar btn-bloco")

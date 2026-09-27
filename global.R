@@ -140,6 +140,11 @@ ler_arquivo_dados <- function(caminho, nome_arquivo, aba = NULL) {
     stop("Formato não suportado. Envie um arquivo .xlsx, .xls ou .csv.")
   }
 
+  limpar_tabela(dados, "O arquivo não possui dados preenchidos.")
+}
+
+# Padroniza nomes de colunas e remove colunas e linhas totalmente vazias.
+limpar_tabela <- function(dados, mensagem_vazio = "Não há dados preenchidos.") {
   dados <- as.data.frame(dados, stringsAsFactors = FALSE, check.names = FALSE)
   nomes <- trimws(names(dados))
   nomes[nomes == ""] <- paste0("Coluna ", which(nomes == ""))
@@ -152,10 +157,33 @@ ler_arquivo_dados <- function(caminho, nome_arquivo, aba = NULL) {
   rownames(dados) <- NULL
 
   if (ncol(dados) == 0 || nrow(dados) == 0) {
-    stop("O arquivo não possui dados preenchidos.")
+    stop(mensagem_vazio)
   }
 
   dados
+}
+
+# Lê dados colados do Excel, planilha ou outra fonte: uma linha por parcela,
+# colunas separadas por tabulação (ou ponto e vírgula, quando não há tabulação).
+ler_texto_colado <- function(texto, cabecalho = TRUE) {
+  linhas <- unlist(strsplit(gsub("\r", "", texto %||% ""), "\n"))
+  linhas <- linhas[nzchar(trimws(linhas))]
+  if (length(linhas) == 0) stop("Cole os dados na caixa de texto antes de importar.")
+  separador <- if (any(grepl("\t", linhas))) "\t" else if (any(grepl(";", linhas, fixed = TRUE))) ";" else "\\s+"
+  partes <- lapply(linhas, function(l) trimws(strsplit(l, separador, perl = TRUE)[[1]]))
+  n_col <- max(lengths(partes))
+  if (n_col < 2) stop("Não foi possível separar as colunas. Copie as células direto do Excel (separadas por tabulação).")
+  matriz <- do.call(rbind, lapply(partes, function(p) c(p, rep("", n_col - length(p)))))
+  if (cabecalho) {
+    nomes <- matriz[1, ]
+    matriz <- matriz[-1, , drop = FALSE]
+  } else {
+    nomes <- paste("Coluna", seq_len(n_col))
+  }
+  if (nrow(matriz) == 0) stop("Há apenas o cabeçalho; cole também as linhas com os dados.")
+  dados <- as.data.frame(matriz, stringsAsFactors = FALSE)
+  names(dados) <- nomes
+  limpar_tabela(dados, "Os dados colados estão vazios.")
 }
 
 dados_para_planilha <- function(dados) {

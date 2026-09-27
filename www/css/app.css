@@ -103,3 +103,4 @@ input[type="checkbox"],input[type="radio"] { width:16px; height:16px; margin:0 7
 @media(max-width:767px) { .linha-fator { grid-template-columns:1fr; }.caixa-letras, .incluir-pdf { padding-top:0; } }
 .caixa-exportacao { justify-content:space-between; }.caixa-exportacao .form-group { margin-bottom:9px; }
 .caixa-exportacao .shiny-options-group { display:flex; gap:4px; }.caixa-exportacao .radio-inline { margin:0; }
+.nav-pills { flex-wrap:wrap; }

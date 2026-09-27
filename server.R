@@ -142,6 +142,24 @@ server <- function(input, output, session) {
     }
   }
 
+  observeEvent(input$importar_colados, {
+    dados <- tryCatch(
+      ler_texto_colado(input$dados_colados, isTRUE(input$colado_cabecalho)),
+      error = function(e) {
+        showNotification(conditionMessage(e), type = "error", duration = 8)
+        NULL
+      }
+    )
+    if (!is.null(dados)) {
+      carregar_planilha(dados_para_planilha(dados))
+      showNotification(
+        sprintf("Dados colados: %d linhas e %d colunas. Confira a estrutura sugerida.", nrow(dados), ncol(dados)),
+        type = "message",
+        duration = 6
+      )
+    }
+  })
+
   observeEvent(input$arquivo_dados, {
     arquivo_atual(input$arquivo_dados)
     importar_arquivo()

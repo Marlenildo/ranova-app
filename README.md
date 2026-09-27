@@ -17,6 +17,7 @@ Aplicativo [Shiny](https://shiny.posit.co/) que dá interface ao pacote R [`rano
 - **Entrada de dados**:
   - *Montar planilha*: informe de 1 a 3 fatores, os níveis, as repetições (ou blocos) e as variáveis resposta; o app monta a planilha com todas as combinações de tratamentos;
   - *Importar arquivo*: Excel (`.xlsx`, `.xls`, com escolha da aba) ou CSV (`;`, `,` ou tabulação);
+  - *Colar*: cole direto as células copiadas do Excel ou de outra fonte, com ou sem linha de cabeçalho;
   - *Exemplo*: experimento fictício para conhecer o app.
 - **Planilha editável**: cole direto do Excel (Ctrl+V), insira ou remova linhas; vírgula decimal aceita.
 - **Estrutura sugerida automaticamente**: bloco, fatores e variáveis resposta são reconhecidos pelas colunas e podem ser ajustados.

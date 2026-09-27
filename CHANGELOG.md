@@ -8,6 +8,15 @@ e o projeto usa [Versionamento Semântico](https://semver.org/lang/pt-BR/):
 
 ## [Não lançado]
 
+## [1.3.0] - 2026-09-27
+
+### Adicionado
+
+- Aba **Colar** no cartão Dados, como no Croma: cole as células copiadas do
+  Excel, planilha ou outra fonte (colunas separadas por tabulação, ponto e
+  vírgula ou espaços), com opção de primeira linha como cabeçalho. Vírgula
+  decimal é aceita.
+
 ## [1.2.0] - 2026-09-27
 
 ### Alterado
