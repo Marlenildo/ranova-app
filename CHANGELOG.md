@@ -8,6 +8,27 @@ e o projeto usa [Versionamento Semântico](https://semver.org/lang/pt-BR/):
 
 ## [Não lançado]
 
+## [1.4.0] - 2026-09-27
+
+### Adicionado
+
+- Gráfico de interação em **linhas ou barras**. Nas barras, as letras do
+  desdobramento aparecem sobre cada média (minúsculas comparam o eixo X dentro
+  de cada cor; maiúsculas, as cores dentro de cada nível do eixo X).
+- **Cores dos grupos**: paletas prontas (Ranova, tons de cinza, azul, verde,
+  terra, alto contraste para daltônicos e viridis) ou cor escolhida para cada
+  nível. Vale para o gráfico, o painel e o PDF.
+- **Quatro gráficos de diagnóstico** dos resíduos (resíduos × ajustados, Normal
+  Q-Q, escala-locação e resíduos × alavancagem com curvas de Cook), com as
+  linhas da planilha mais extremas identificadas.
+- Aba **Discrepantes**: indica possíveis outliers (resíduo studentizado acima de
+  ±3) e pontos influentes (distância de Cook acima de 4/(n − p) com resíduo
+  acima de ±2), com valor observado, ajustado e média das repetições. Os valores
+  escolhidos podem ser **substituídos pela média das demais repetições do mesmo
+  tratamento**, com nova análise automática e opção de desfazer.
+- PDF com a tabela de valores substituídos, a de possíveis discrepantes e os
+  quatro gráficos de diagnóstico de cada variável.
+
 ## [1.3.0] - 2026-09-27
 
 ### Adicionado

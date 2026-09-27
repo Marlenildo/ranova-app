@@ -435,6 +435,7 @@ preparar_dados_analise <- function(dados, delineamento, bloco, fatores, resposta
     mapa = mapa,
     dic_vars = dic_vars,
     linhas_descartadas = linhas_descartadas,
+    linha_planilha = which(linhas_validas),
     n_obs = nrow(analise)
   )
 }
@@ -643,29 +644,84 @@ grafico_medias <- function(prep, opcoes, resposta, fator, rotulos = NULL, base_s
     tema_ranova(base_size)
 }
 
-grafico_interacao <- function(prep, resposta, fator_x, fator_traco, rotulos = NULL, base_size = 13) {
+PALETAS <- list(
+  ranova = list(nome = "Ranova (azul, verde, dourado)", cores = function(n) rep(PALETA_FATORES, length.out = n)),
+  cinza = list(nome = "Tons de cinza", cores = function(n) if (n == 1) "#555555" else grDevices::gray(seq(0.18, 0.78, length.out = n))),
+  azul = list(nome = "Tons de azul", cores = function(n) grDevices::colorRampPalette(c("#173B5B", "#2A5C92", "#9DC0E3"))(n)),
+  verde = list(nome = "Tons de verde", cores = function(n) grDevices::colorRampPalette(c("#1F4D2B", "#4D965D", "#B5DCB9"))(n)),
+  terra = list(nome = "Terra", cores = function(n) grDevices::colorRampPalette(c("#5B3A1E", "#C0924A", "#E8D3A8"))(n)),
+  contraste = list(nome = "Alto contraste (daltônicos)", cores = function(n) rep(c("#0072B2", "#E69F00", "#009E73", "#D55E00", "#CC79A7", "#56B4E9", "#F0E442", "#000000"), length.out = n)),
+  viridis = list(nome = "Viridis", cores = function(n) grDevices::hcl.colors(n, "viridis"))
+)
+
+OPCOES_PALETAS <- c(stats::setNames(names(PALETAS), vapply(PALETAS, `[[`, character(1), "nome")), "Escolher cada cor" = "personalizada")
+
+# Cores dos níveis de um fator: paleta pronta ou cores escolhidas uma a uma.
+cores_niveis <- function(niveis, paleta = "ranova", personalizadas = NULL) {
+  n <- length(niveis)
+  base <- PALETAS[[if (paleta %in% names(PALETAS)) paleta else "ranova"]]$cores(n)
+  if (identical(paleta, "personalizada") && length(personalizadas) > 0) {
+    escolhidas <- vapply(seq_len(n), function(i) {
+      cor <- personalizadas[[i]] %||% ""
+      if (grepl("^#[0-9A-Fa-f]{6}", cor)) cor else PALETA_FATORES[(i - 1) %% length(PALETA_FATORES) + 1]
+    }, character(1))
+    base <- escolhidas
+  }
+  stats::setNames(base, niveis)
+}
+
+# Gráfico de interação em linhas ou barras. Nas barras, as letras seguem o desdobramento:
+# minúsculas comparam os níveis do eixo X em cada cor; maiúsculas, as cores em cada nível do eixo X.
+grafico_interacao <- function(prep, resposta, fator_x, fator_traco, rotulos = NULL, base_size = 13,
+                              estilo = NULL, opcoes = NULL) {
+  estilo <- estilo %||% list()
+  tipo <- estilo$tipo %||% "linhas"
+  niveis_traco <- levels(prep$dados[[fator_traco]])
+  cores <- cores_niveis(niveis_traco, estilo$paleta %||% "ranova", estilo$cores[[fator_traco]])
+  rotulos_eixos <- labs(x = rotulo_grafico(prep, fator_x, rotulos), y = rotulo_grafico(prep, resposta, rotulos),
+                        color = rotulo_grafico(prep, fator_traco, rotulos), fill = rotulo_grafico(prep, fator_traco, rotulos))
+
+  if (identical(tipo, "barras")) {
+    opcoes <- opcoes %||% list(alpha = 0.05, tipo_se = "modelo")
+    medias <- interacao_letras(prep, opcoes, resposta, fator_x, fator_traco)
+    medias$x <- factor(medias$linha, levels = levels(prep$dados[[fator_x]]))
+    medias$grupo <- factor(medias$coluna, levels = niveis_traco)
+    medias$letra <- paste0(medias$letra_lin, medias$letra_col)
+    topo <- max(medias$media + medias$se, na.rm = TRUE)
+    desvio <- position_dodge(width = 0.8)
+    return(
+      ggplot(medias, aes(x = .data$x, y = .data$media, fill = .data$grupo)) +
+        geom_col(position = desvio, width = 0.75, color = CORES_APP$navy, linewidth = 0.3) +
+        geom_errorbar(aes(ymin = .data$media - .data$se, ymax = .data$media + .data$se), position = desvio, width = 0.2, color = CORES_APP$ink) +
+        geom_text(aes(y = .data$media + .data$se, label = .data$letra), position = desvio, vjust = -0.55,
+                  size = base_size * 0.27, fontface = "bold", color = CORES_APP$ink) +
+        scale_fill_manual(values = cores) +
+        scale_y_continuous(expand = expansion(mult = c(0, 0.14)), limits = c(0, topo * 1.14)) +
+        rotulos_eixos +
+        tema_ranova(base_size)
+    )
+  }
+
   modelo <- silenciar(ajusta_modelo_fatorial(prep$dados, resposta, prep$bloco, prep$fatores))
   medias <- as.data.frame(silenciar(emmeans::emmeans(modelo, stats::as.formula(paste("~", fator_x, "*", fator_traco)))))
-  cores <- rep(PALETA_FATORES, length.out = nlevels(prep$dados[[fator_traco]]))
-
   ggplot(medias, aes(x = .data[[fator_x]], y = .data$emmean, group = .data[[fator_traco]], color = .data[[fator_traco]])) +
     geom_line(linewidth = 0.8) +
     geom_errorbar(aes(ymin = .data$emmean - .data$SE, ymax = .data$emmean + .data$SE), width = 0.12) +
     geom_point(size = base_size * 0.22) +
     scale_color_manual(values = cores) +
-    labs(x = rotulo_grafico(prep, fator_x, rotulos), y = rotulo_grafico(prep, resposta, rotulos), color = rotulo_grafico(prep, fator_traco, rotulos)) +
+    rotulos_eixos +
     tema_ranova(base_size)
 }
 
 # Painel com vários gráficos na ordem escolhida, identificados por letras (A, B, C...).
 painel_graficos <- function(prep, opcoes, variaveis, tipo = c("medias", "interacao"), fator = NULL,
-                            fator_x = NULL, fator_traco = NULL, rotulos = NULL, ncol = 2, letras = TRUE) {
+                            fator_x = NULL, fator_traco = NULL, rotulos = NULL, ncol = 2, letras = TRUE, estilo = NULL) {
   tipo <- match.arg(tipo)
   graficos <- lapply(variaveis, function(v) {
     if (identical(tipo, "medias")) {
       grafico_medias(prep, opcoes, v, fator, rotulos, base_size = 11)
     } else {
-      grafico_interacao(prep, v, fator_x, fator_traco, rotulos, base_size = 11)
+      grafico_interacao(prep, v, fator_x, fator_traco, rotulos, base_size = 11, estilo = estilo, opcoes = opcoes)
     }
   })
   ncol <- max(1L, min(as.integer(ncol), length(graficos)))
@@ -686,28 +742,136 @@ dimensoes_painel <- function(n, ncol) {
   list(largura = 3.6 * ncol + 0.4, altura = 3.1 * ceiling(n / ncol) + 0.4)
 }
 
-grafico_residuos <- function(prep, resposta) {
+# Quatro gráficos de diagnóstico do modelo (os mesmos de plot() para lm/aov), com as
+# observações mais extremas identificadas pelo número da linha na planilha.
+grafico_residuos <- function(prep, resposta, base_size = 11) {
   modelo <- silenciar(ajusta_modelo_fatorial(prep$dados, resposta, prep$bloco, prep$fatores))
-  residuos <- data.frame(
+  usados <- as.integer(rownames(stats::model.frame(modelo)))
+  d <- data.frame(
+    linha = prep$linha_planilha[usados],
     ajustado = stats::fitted(modelo),
-    residuo = stats::rstandard(modelo)
+    residuo = stats::residuals(modelo),
+    padronizado = suppressWarnings(stats::rstandard(modelo)),
+    alavancagem = stats::hatvalues(modelo),
+    cook = suppressWarnings(stats::cooks.distance(modelo))
   )
-  residuos <- residuos[is.finite(residuos$residuo), , drop = FALSE]
+  d <- d[is.finite(d$padronizado), , drop = FALSE]
+  d$raiz <- sqrt(abs(d$padronizado))
+  destaque <- d$linha %in% utils::head(d$linha[order(-abs(d$padronizado))], 3)
+  rotulos_pontos <- function() geom_text(data = d[destaque, , drop = FALSE], aes(label = .data$linha), vjust = -0.8,
+                                         size = base_size * 0.26, color = CORES_APP$red, fontface = "bold")
+  pontos <- function() list(geom_point(color = CORES_APP$blue, size = 2.1, alpha = 0.85),
+                            scale_y_continuous(expand = expansion(mult = c(0.08, 0.14))))
+  suave <- function() geom_smooth(method = "loess", formula = y ~ x, se = FALSE, color = CORES_APP$red, linewidth = 0.6, span = 1)
 
-  dispersao <- ggplot(residuos, aes(x = .data$ajustado, y = .data$residuo)) +
+  g1 <- ggplot(d, aes(x = .data$ajustado, y = .data$residuo)) +
     geom_hline(yintercept = 0, linetype = "dashed", color = CORES_APP$muted) +
-    geom_hline(yintercept = c(-3, 3), linetype = "dotted", color = CORES_APP$red) +
-    geom_point(color = CORES_APP$blue, size = 2.6, alpha = 0.85) +
-    labs(x = "Valores ajustados", y = "Resíduos padronizados", title = "Resíduos × ajustados") +
-    tema_ranova()
+    pontos() + suave() + rotulos_pontos() +
+    labs(x = "Valores ajustados", y = "Resíduos", title = "Resíduos × ajustados") + tema_ranova(base_size)
 
-  qq <- ggplot(residuos, aes(sample = .data$residuo)) +
-    stat_qq_line(color = CORES_APP$muted, linetype = "dashed") +
-    stat_qq(color = CORES_APP$blue, size = 2.6, alpha = 0.85) +
-    labs(x = "Quantis teóricos", y = "Resíduos padronizados", title = "Normal Q-Q") +
-    tema_ranova()
+  qq <- stats::qqnorm(d$padronizado, plot.it = FALSE)
+  d$teorico <- qq$x
+  g2 <- ggplot(d, aes(x = .data$teorico, y = .data$padronizado)) +
+    geom_abline(intercept = 0, slope = 1, linetype = "dashed", color = CORES_APP$muted) +
+    pontos() +
+    geom_text(data = d[destaque, , drop = FALSE], aes(label = .data$linha), vjust = -0.8, size = base_size * 0.26, color = CORES_APP$red, fontface = "bold") +
+    labs(x = "Quantis teóricos", y = "Resíduos padronizados", title = "Normal Q-Q") + tema_ranova(base_size)
 
-  ggpubr::ggarrange(dispersao, qq, ncol = 2)
+  g3 <- ggplot(d, aes(x = .data$ajustado, y = .data$raiz)) +
+    pontos() + suave() + rotulos_pontos() +
+    labs(x = "Valores ajustados", y = expression(sqrt("|Resíduos padronizados|")), title = "Escala-locação") + tema_ranova(base_size)
+
+  p <- modelo$rank
+  faixa_h <- range(d$alavancagem)
+  hs <- seq(max(0.001, faixa_h[1] * 0.9), min(0.999, max(faixa_h[2] * 1.1, faixa_h[1] + 0.01)), length.out = 80)
+  contornos <- do.call(rbind, lapply(c(0.5, 1), function(D) {
+    r <- sqrt(D * p * (1 - hs) / hs)
+    rbind(data.frame(h = hs, r = r, D = D, lado = "sup"), data.frame(h = hs, r = -r, D = D, lado = "inf"))
+  }))
+  lim_y <- range(c(d$padronizado, -3, 3))
+  contornos <- contornos[contornos$r >= lim_y[1] & contornos$r <= lim_y[2], , drop = FALSE]
+  g4 <- ggplot(d, aes(x = .data$alavancagem, y = .data$padronizado)) +
+    geom_hline(yintercept = 0, linetype = "dashed", color = CORES_APP$muted) +
+    geom_line(data = contornos, aes(x = .data$h, y = .data$r, group = interaction(.data$D, .data$lado)),
+              linetype = "dotted", color = CORES_APP$red, inherit.aes = FALSE) +
+    pontos() + rotulos_pontos() +
+    labs(x = "Alavancagem", y = "Resíduos padronizados", title = "Resíduos × alavancagem",
+         caption = "Linhas pontilhadas: distância de Cook 0,5 e 1") + tema_ranova(base_size) +
+    theme(plot.caption = element_text(size = base_size * 0.7, color = CORES_APP$muted))
+
+  silenciar(ggpubr::ggarrange(g1, g2, g3, g4, ncol = 2, nrow = 2))
+}
+
+# ---------------------------------------------------------
+# Valores discrepantes e pontos influentes
+# ---------------------------------------------------------
+
+LIMITE_OUTLIER <- 3
+
+# Para cada variável, marca observações com resíduo studentizado |t| > 3 (possível outlier)
+# ou com distância de Cook > 4/(n - p) e |t| > 2 (ponto influente).
+detectar_discrepantes <- function(prep) {
+  linhas <- lapply(prep$respostas, function(v) {
+    modelo <- silenciar(ajusta_modelo_fatorial(prep$dados, v, prep$bloco, prep$fatores))
+    usados <- as.integer(rownames(stats::model.frame(modelo)))
+    t <- suppressWarnings(stats::rstudent(modelo))
+    cook <- suppressWarnings(stats::cooks.distance(modelo))
+    n <- length(usados)
+    limite_cook <- 4 / max(1, n - modelo$rank)
+    outlier <- is.finite(t) & abs(t) > LIMITE_OUTLIER
+    influente <- is.finite(cook) & cook > limite_cook & is.finite(t) & abs(t) > 2
+    idx <- which(outlier | influente)
+    if (length(idx) == 0) return(NULL)
+    i_dados <- usados[idx]
+    tratamento <- apply(prep$dados[i_dados, prep$fatores, drop = FALSE], 1, function(x) paste(paste(rotulo(prep, prep$fatores), x), collapse = " · "))
+    if (!is.null(prep$bloco)) tratamento <- paste0(tratamento, " · ", rotulo(prep, prep$bloco), " ", prep$dados[i_dados, prep$bloco])
+    data.frame(
+      id = paste0(v, "|", prep$linha_planilha[i_dados]),
+      variavel = v,
+      linha = prep$linha_planilha[i_dados],
+      indice = i_dados,
+      tratamento = tratamento,
+      observado = prep$dados[[v]][i_dados],
+      ajustado = stats::fitted(modelo)[idx],
+      t = t[idx],
+      cook = cook[idx],
+      limite_cook = limite_cook,
+      classificacao = ifelse(outlier[idx] & influente[idx], "Outlier e influente", ifelse(outlier[idx], "Possível outlier", "Ponto influente")),
+      stringsAsFactors = FALSE
+    )
+  })
+  resultado <- do.call(rbind, linhas)
+  if (is.null(resultado)) return(NULL)
+  resultado[order(-abs(resultado$t)), , drop = FALSE]
+}
+
+# Média das demais repetições do mesmo tratamento (mesma combinação de níveis dos fatores).
+media_repeticoes <- function(prep, variavel, indice) {
+  chave <- interaction(prep$dados[prep$fatores], drop = TRUE)
+  mesmas <- which(chave == chave[indice])
+  mesmas <- setdiff(mesmas, indice)
+  valores <- prep$dados[[variavel]][mesmas]
+  if (all(is.na(valores))) return(NA_real_)
+  mean(valores, na.rm = TRUE)
+}
+
+# Troca os valores escolhidos pela média das demais repetições e devolve a planilha
+# atualizada e o registro das trocas (para o relatório).
+substituir_discrepantes <- function(planilha, prep, discrepantes, ids) {
+  escolhidos <- discrepantes[discrepantes$id %in% ids, , drop = FALSE]
+  registro <- data.frame()
+  for (k in seq_len(nrow(escolhidos))) {
+    item <- escolhidos[k, ]
+    novo <- media_repeticoes(prep, item$variavel, item$indice)
+    if (is.na(novo)) next
+    coluna <- rotulo(prep, item$variavel)
+    planilha[item$linha, coluna] <- format(round(novo, 4), trim = TRUE, scientific = FALSE, drop0trailing = TRUE)
+    registro <- rbind(registro, data.frame(
+      variavel = coluna, linha = item$linha, tratamento = item$tratamento,
+      original = item$observado, novo = novo, motivo = item$classificacao, stringsAsFactors = FALSE
+    ))
+  }
+  list(planilha = planilha, registro = registro)
 }
 
 # Exporta um gráfico em PNG ou TIFF (LZW) na resolução escolhida.
@@ -794,7 +958,9 @@ medias_dados <- function(prep, opcoes, fator) {
              check.names = FALSE, stringsAsFactors = FALSE)
 }
 
-interacao_dados <- function(prep, opcoes, resposta, fator_linha, fator_coluna) {
+# Médias da combinação de dois fatores com letras: minúsculas comparam os níveis de
+# `fator_linha` dentro de cada nível de `fator_coluna`; maiúsculas, o contrário.
+interacao_letras <- function(prep, opcoes, resposta, fator_linha, fator_coluna) {
   modelo <- silenciar(ajusta_modelo_fatorial(prep$dados, resposta, prep$bloco, prep$fatores))
   ajuste <- function(fator) if (nlevels(prep$dados[[fator]]) == 2) "none" else "tukey"
   letras <- function(formula, fator, conjunto) {
@@ -811,6 +977,11 @@ interacao_dados <- function(prep, opcoes, resposta, fator_linha, fator_coluna) {
                            function(x) stats::sd(x, na.rm = TRUE) / sqrt(sum(!is.na(x))))
     base$se <- se$x[match(paste(base$linha, base$coluna), paste(se$linha, se$coluna))]
   }
+  base
+}
+
+interacao_dados <- function(prep, opcoes, resposta, fator_linha, fator_coluna) {
+  base <- interacao_letras(prep, opcoes, resposta, fator_linha, fator_coluna)
   base$texto <- paste0(num_pt(base$media, opcoes$digitos), " ± ", num_pt(base$se, opcoes$digitos), " ", base$letra_lin, base$letra_col)
   niveis_l <- levels(prep$dados[[fator_linha]])
   niveis_c <- levels(prep$dados[[fator_coluna]])
@@ -922,7 +1093,7 @@ desenhar_tabela <- function(tabela, x, y, largura_max, titulo = NULL, nota = NUL
 
 gerar_relatorio_pdf <- function(resultado, arquivo, fator_linha = NULL, fator_coluna = NULL,
                                 titulo = "Relatório de análise de variância", responsavel = "", descricao = "",
-                                rotulos = NULL, painel = NULL) {
+                                rotulos = NULL, painel = NULL, estilo = NULL) {
   prep <- resultado$prep
   opcoes <- resultado$opcoes
   titulo <- trimws(titulo %||% "")
@@ -977,6 +1148,9 @@ gerar_relatorio_pdf <- function(resultado, arquivo, fator_linha = NULL, fator_co
   )
   if (nzchar(responsavel)) itens <- c(itens, list(c("Responsável", responsavel)))
   itens <- c(itens, list(c("Emissão", data_hora)))
+  if (!is.null(resultado$substituicoes) && nrow(resultado$substituicoes) > 0) {
+    leitura <- c(leitura, paste0(nrow(resultado$substituicoes), " valor(es) discrepante(s) substituído(s) pela média das repetições (ver tabela abaixo)."))
+  }
   itens_linhas <- lapply(itens, function(item) quebrar_texto(item[2], largura_util - 2.1, 9))
   linhas_leitura <- unlist(lapply(leitura, function(t) {
     q <- quebrar_texto(t, largura_util - 0.5, 8.8)
@@ -1066,6 +1240,52 @@ gerar_relatorio_pdf <- function(resultado, arquivo, fator_linha = NULL, fator_co
     })
   })
 
+  # Valores substituídos e discrepantes
+  subs <- resultado$substituicoes
+  if (!is.null(subs) && nrow(subs) > 0) local({
+    tab <- data.frame(
+      "Variável" = subs$variavel, "Linha" = as.character(subs$linha), "Tratamento" = subs$tratamento,
+      "Valor original" = num_pt(subs$original, 3), "Média usada" = num_pt(subs$novo, 3), "Motivo" = subs$motivo,
+      check.names = FALSE, stringsAsFactors = FALSE
+    )
+    nota <- "Valores trocados pela média das demais repetições do mesmo tratamento antes da análise."
+    bloco("Resumo", altura_tabela(tab, "Valores substituídos", nota) + 0.2, function(y) {
+      desenhar_tabela(tab, margem, y, largura_util, titulo = "Valores substituídos", nota = nota, tamanho = 8)
+    })
+  })
+  disc <- resultado$discrepantes
+  if (!is.null(disc) && nrow(disc) > 0) local({
+    disc <- utils::head(disc, 15)
+    tab <- data.frame(
+      "Variável" = rotulo(prep, disc$variavel), "Linha" = as.character(disc$linha), "Tratamento" = disc$tratamento,
+      "Observado" = num_pt(disc$observado, 3), "t" = num_pt(disc$t, 2), "Cook" = num_pt(disc$cook, 3), "Situação" = disc$classificacao,
+      check.names = FALSE, stringsAsFactors = FALSE
+    )
+    marca <- matrix(FALSE, nrow(tab), ncol(tab))
+    marca[, 7] <- grepl("outlier", disc$classificacao, ignore.case = TRUE)
+    nota <- "Outlier: resíduo studentizado |t| > 3. Influente: Cook > 4/(n - p) com |t| > 2. Confira esses valores na planilha."
+    bloco("Resumo", altura_tabela(tab, "Possíveis valores discrepantes", nota) + 0.2, function(y) {
+      desenhar_tabela(tab, margem, y, largura_util, titulo = "Possíveis valores discrepantes", nota = nota, destaque = marca, tamanho = 8)
+    })
+  })
+
+  # Diagnóstico dos resíduos: quatro gráficos por variável, duas variáveis por página
+  primeira_diag <- TRUE
+  for (v in prep$respostas) local({
+    v <- v
+    grafico <- tentar(grafico_residuos(prep, v, base_size = 9))
+    if (!isTRUE(grafico$ok)) return(NULL)
+    altura <- (topo_corpo - base_corpo) / 2 - 0.05
+    bloco("Diagnóstico dos resíduos", altura, function(y) {
+      grid::grid.text(paste0("Diagnóstico dos resíduos: ", rotulo(prep, v)), x = grid::unit(margem, "in"), y = grid::unit(y - 0.12, "in"),
+                      just = c("left", "center"), gp = grid::gpar(fontsize = 10, fontface = "bold", col = CORES_APP$navy))
+      vp <- grid::viewport(x = grid::unit(margem, "in"), y = grid::unit(y - 0.28, "in"), width = grid::unit(largura_util, "in"),
+                           height = grid::unit(altura - 0.4, "in"), just = c("left", "top"))
+      print(grafico$valor, vp = vp)
+    }, nova_pagina = primeira_diag)
+    primeira_diag <<- FALSE
+  })
+
   # ANOVA
   por_bloco <- if (identical(opcoes$formato, "f_p_colunas")) 3 else 4
   anova <- anova_dados(prep, opcoes$formato, opcoes$digitos_anova)
@@ -1133,7 +1353,7 @@ gerar_relatorio_pdf <- function(resultado, arquivo, fator_linha = NULL, fator_co
     }
     if (!is.null(fator_linha) && !is.null(fator_coluna)) {
       graficos[[length(graficos) + 1]] <- list(
-        grafico = tentar(grafico_interacao(prep, v, fator_linha, fator_coluna, rotulos, base_size = 10)),
+        grafico = tentar(grafico_interacao(prep, v, fator_linha, fator_coluna, rotulos, base_size = 10, estilo = estilo, opcoes = opcoes)),
         legenda = paste0("Interação ", rotulo_grafico(prep, fator_linha, rotulos), " × ", rotulo_grafico(prep, fator_coluna, rotulos), ": ", rotulo_grafico(prep, v, rotulos))
       )
     }

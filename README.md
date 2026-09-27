@@ -24,10 +24,11 @@ Aplicativo [Shiny](https://shiny.posit.co/) que dá interface ao pacote R [`rano
 - **DIC ou DBC**, com 1, 2 ou 3 fatores e uma ou mais variáveis resposta.
 - **Resultados em abas**:
   - *ANOVA* em três formatos (QM com asteriscos, F e p em colunas, F (p)), com CV e leitura rápida dos efeitos e interações significativos;
-  - *Pressupostos*: Shapiro-Wilk, Levene e gráficos de resíduos;
+  - *Pressupostos*: Shapiro-Wilk, Levene e os quatro gráficos de diagnóstico dos resíduos;
+  - *Discrepantes*: possíveis outliers e pontos influentes, com opção de substituir o valor pela média das demais repetições do tratamento e reanalisar (com registro no relatório e opção de desfazer);
   - *Médias* com letras (teste t para 2 níveis, Tukey para 3 ou mais);
   - *Interação*: desdobramento com letras maiúsculas e minúsculas;
-  - *Gráficos* de médias e de interação.
+  - *Gráficos* de médias e de interação (linhas ou barras com letras), com paletas prontas (inclusive tons de cinza) ou cor escolhida para cada grupo.
 - **Painel de gráficos**: escolha as variáveis e a ordem, dê nomes aos eixos e legendas e monte um painel com quantos gráficos quiser, identificados por letras (A, B, C, D...).
 - **Exportação dos gráficos** em PNG ou TIFF (LZW), com resolução de 150, 300 ou 600 dpi e tamanho em centímetros.
 - **Relatório em PDF** (A4 retrato, no padrão do Croma, com cabeçalho branco): resumo do experimento, leitura rápida dos efeitos, pressupostos, ANOVA, médias, desdobramento da interação, gráficos numerados e o painel montado no app.
@@ -39,7 +40,7 @@ Os dados ficam apenas na sessão aberta: nada é gravado em banco de dados, arqu
 Requer R 4.1 ou superior.
 
 ```r
-install.packages(c("shiny", "remotes", "rhandsontable", "readxl", "writexl", "png"))
+install.packages(c("shiny", "remotes", "rhandsontable", "readxl", "writexl", "png", "colourpicker"))
 remotes::install_github("Marlenildo/ranova")
 shiny::runApp()
 ```

@@ -1,5 +1,10 @@
 server <- function(input, output, session) {
   planilha_base <- reactiveVal(NULL)
+  # Valor da planilha no navegador no momento em que a base foi trocada pelo servidor:
+  # enquanto o navegador não enviar uma edição nova, vale a base.
+  planilha_congelada <- reactiveVal(NULL)
+  planilha_original <- reactiveVal(NULL)
+  substituicoes <- reactiveVal(data.frame())
   resultado <- reactiveVal(NULL)
   mensagens <- reactiveVal(NULL)
   arquivo_atual <- reactiveVal(NULL)
@@ -16,8 +21,15 @@ server <- function(input, output, session) {
     updateSelectizeInput(session, "colunas_respostas", choices = colunas, selected = estrutura$respostas)
   }
 
-  carregar_planilha <- function(dados, estrutura = sugerir_estrutura(dados)) {
+  trocar_planilha <- function(dados) {
+    planilha_congelada(isolate(input$planilha))
     planilha_base(dados)
+  }
+
+  carregar_planilha <- function(dados, estrutura = sugerir_estrutura(dados)) {
+    trocar_planilha(dados)
+    planilha_original(NULL)
+    substituicoes(data.frame())
     resultado(NULL)
     mensagens(NULL)
     aplicar_estrutura(dados, estrutura)
@@ -27,7 +39,7 @@ server <- function(input, output, session) {
     base <- planilha_base()
     req(base)
     editada <- input$planilha
-    if (is.null(editada)) {
+    if (is.null(editada) || identical(editada, planilha_congelada())) {
       return(base)
     }
     dados <- tryCatch(hot_to_r(editada), error = function(e) NULL)
@@ -240,11 +252,11 @@ server <- function(input, output, session) {
   # Análise
   # ---------------------------------------------------------
 
-  observeEvent(input$analisar, {
-    dados <- tryCatch(dados_atuais(), error = function(e) NULL)
+  rodar_analise <- function(dados = NULL) {
+    if (is.null(dados)) dados <- tryCatch(dados_atuais(), error = function(e) NULL)
     if (is.null(dados)) {
       mensagens(list(tipo = "erro", itens = "Monte, importe ou carregue uma planilha antes de analisar."))
-      return()
+      return(invisible(FALSE))
     }
 
     prep <- preparar_dados_analise(
@@ -256,7 +268,7 @@ server <- function(input, output, session) {
     )
     if (!isTRUE(prep$ok)) {
       mensagens(list(tipo = "erro", itens = prep$erros))
-      return()
+      return(invisible(FALSE))
     }
 
     opcoes <- list(
@@ -270,6 +282,8 @@ server <- function(input, output, session) {
     analise <- withProgress(message = "Analisando o experimento...", value = 0.3, {
       executar_analise(prep, opcoes)
     })
+    analise$discrepantes <- tryCatch(detectar_discrepantes(prep), error = function(e) NULL)
+    analise$substituicoes <- substituicoes()
 
     avisos <- character()
     if (prep$linhas_descartadas > 0) {
@@ -279,14 +293,108 @@ server <- function(input, output, session) {
     if (n_ausentes > 0) {
       avisos <- c(avisos, sprintf("%d valor(es) ausente(s) nas variáveis resposta foram desconsiderados no ajuste do modelo.", n_ausentes))
     }
+    if (!is.null(analise$discrepantes) && nrow(analise$discrepantes) > 0) {
+      avisos <- c(avisos, sprintf("%d possível(is) valor(es) discrepante(s) ou influente(s). Veja a aba Discrepantes.", nrow(analise$discrepantes)))
+    }
+    if (nrow(substituicoes()) > 0) {
+      avisos <- c(avisos, sprintf("%d valor(es) substituído(s) pela média das repetições nesta análise.", nrow(substituicoes())))
+    }
     if (!isTRUE(analise$anova$ok)) {
       mensagens(list(tipo = "erro", itens = c("Não foi possível ajustar a ANOVA com os dados informados.", analise$anova$erro)))
-      return()
+      return(invisible(FALSE))
     }
 
     mensagens(if (length(avisos) > 0) list(tipo = "aviso", itens = avisos) else NULL)
     resultado(analise)
-    updateTabsetPanel(session, "abas_resultado", selected = "anova")
+    invisible(TRUE)
+  }
+
+  observeEvent(input$analisar, {
+    if (isTRUE(rodar_analise())) updateTabsetPanel(session, "abas_resultado", selected = "anova")
+  })
+
+  # ---------------------------------------------------------
+  # Valores discrepantes
+  # ---------------------------------------------------------
+
+  output$discrepantes_ui <- renderUI({
+    res <- resultado()
+    req(res)
+    prep <- res$prep
+    disc <- res$discrepantes
+    feitas <- substituicoes()
+    lista_feitas <- if (nrow(feitas) > 0) {
+      div(class = "aviso-grupos aviso-ok caixa-substituicoes",
+        icon("rotate-left"),
+        div(
+          tags$b(sprintf("%d valor(es) substituído(s) pela média das repetições:", nrow(feitas))),
+          tags$ul(lapply(seq_len(nrow(feitas)), function(i) tags$li(sprintf(
+            "%s, linha %d (%s): %s → %s", feitas$variavel[i], feitas$linha[i], feitas$tratamento[i],
+            num_pt(feitas$original[i], 3), num_pt(feitas$novo[i], 3)
+          )))),
+          actionButton("desfazer_substituicoes", "Desfazer substituições", icon = icon("rotate-left"), class = "btn-secundario")
+        )
+      )
+    }
+    if (is.null(disc) || nrow(disc) == 0) {
+      return(tagList(
+        lista_feitas,
+        div(class = "aviso-grupos aviso-ok", icon("circle-check"),
+            span("Nenhum valor discrepante ou ponto influente encontrado pelos critérios abaixo."))
+      ))
+    }
+    escolhas <- stats::setNames(disc$id, sprintf("%s · linha %d · %s", rotulo(prep, disc$variavel), disc$linha, disc$tratamento))
+    tagList(
+      lista_feitas,
+      div(class = "tabela-rolagem",
+        tags$table(class = "table ranova-diag-table",
+          tags$thead(tags$tr(lapply(c("Variável", "Linha", "Tratamento", "Observado", "Ajustado", "Média das repetições", "t studentizado", "Cook", "Situação"), tags$th))),
+          tags$tbody(lapply(seq_len(nrow(disc)), function(i) {
+            media <- media_repeticoes(prep, disc$variavel[i], disc$indice[i])
+            classe <- if (grepl("outlier", disc$classificacao[i], ignore.case = TRUE)) "ranova-alerta" else "ranova-atencao"
+            tags$tr(
+              tags$td(rotulo(prep, disc$variavel[i])), tags$td(disc$linha[i]), tags$td(disc$tratamento[i]),
+              tags$td(tags$b(num_pt(disc$observado[i], 3))), tags$td(num_pt(disc$ajustado[i], 3)), tags$td(num_pt(media, 3)),
+              tags$td(num_pt(disc$t[i], 2)), tags$td(num_pt(disc$cook[i], 3)),
+              tags$td(tags$span(class = paste("ranova-pill", classe), disc$classificacao[i]))
+            )
+          }))
+        )
+      ),
+      div(class = "caixa-substituir",
+        checkboxGroupInput("discrepantes_escolhidos", "Substituir pela média das demais repetições do mesmo tratamento:",
+                           choices = escolhas, selected = disc$id[grepl("outlier", disc$classificacao, ignore.case = TRUE)], width = "100%"),
+        actionButton("substituir_discrepantes", "Substituir e reanalisar", icon = icon("wand-magic-sparkles"), class = "btn-analisar")
+      )
+    )
+  })
+
+  observeEvent(input$substituir_discrepantes, {
+    res <- resultado()
+    req(res, length(input$discrepantes_escolhidos) > 0)
+    atual <- dados_atuais()
+    troca <- substituir_discrepantes(atual, res$prep, res$discrepantes, input$discrepantes_escolhidos)
+    if (nrow(troca$registro) == 0) {
+      showNotification("Não há outras repetições com valor para calcular a média.", type = "warning")
+      return()
+    }
+    if (is.null(planilha_original())) planilha_original(atual)
+    substituicoes(rbind(substituicoes(), troca$registro))
+    trocar_planilha(troca$planilha)
+    rodar_analise(troca$planilha)
+    updateTabsetPanel(session, "abas_resultado", selected = "discrepantes")
+    showNotification(sprintf("%d valor(es) substituído(s) e análise refeita.", nrow(troca$registro)), type = "message")
+  })
+
+  observeEvent(input$desfazer_substituicoes, {
+    original <- planilha_original()
+    req(original)
+    substituicoes(data.frame())
+    planilha_original(NULL)
+    trocar_planilha(original)
+    rodar_analise(original)
+    updateTabsetPanel(session, "abas_resultado", selected = "discrepantes")
+    showNotification("Substituições desfeitas; a análise voltou aos valores originais.", type = "message")
   })
 
   output$mensagens_analise <- renderUI({
@@ -341,7 +449,14 @@ server <- function(input, output, session) {
         if (isTRUE(res$diagnostico$ok)) tabela_diagnostico_html(res$diagnostico$valor) else tags$p(class = "texto-erro", res$diagnostico$erro),
         tags$p(class = "explicacao nota-resultado", "Shapiro-Wilk avalia a normalidade dos resíduos e Levene avalia a homogeneidade de variâncias entre tratamentos. Quando algum pressuposto não for atendido, considere transformar a variável ou usar outro modelo."),
         selectInput("var_residuos", "Resíduos da variável", choices = respostas, width = "100%"),
-        plotOutput("grafico_residuos", height = 330)
+        plotOutput("grafico_residuos", height = 620),
+        tags$p(class = "explicacao nota-resultado", "Os números em vermelho são as linhas da planilha com os maiores resíduos. Pontos que se afastam muito da linha no Q-Q ou passam das curvas de Cook merecem ser conferidos na aba Discrepantes.")
+      ),
+      tabPanel(
+        title = "Discrepantes",
+        value = "discrepantes",
+        div(class = "explicacao espaco-topo", HTML("Critérios: <b>possível outlier</b> quando o resíduo studentizado passa de ±3; <b>ponto influente</b> quando a distância de Cook passa de 4/(n − p) com resíduo acima de ±2. Antes de substituir, confira se não é erro de digitação ou de coleta.")),
+        uiOutput("discrepantes_ui")
       ),
       tabPanel(
         title = "Médias",
@@ -390,6 +505,13 @@ server <- function(input, output, session) {
             class = "grade-campos",
             selectInput("fator_x", "Fator no eixo X", choices = fatores, selected = prep$fatores[1]),
             selectInput("fator_traco", "Fator nas linhas (cores)", choices = fatores, selected = prep$fatores[2])
+          ),
+          div(class = "caixa-estilo",
+            div(class = "grade-campos",
+              radioButtons("interacao_tipo", "Tipo", inline = TRUE, choices = c("Linhas" = "linhas", "Barras" = "barras"), selected = isolate(input$interacao_tipo) %||% "linhas"),
+              selectInput("interacao_paleta", "Cores dos grupos", choices = OPCOES_PALETAS, selected = isolate(input$interacao_paleta) %||% "ranova")
+            ),
+            uiOutput("cores_personalizadas")
           ),
           plotOutput("grafico_interacao", height = 360),
           controles_exportacao("interacao", largura = 17, altura = 11)
@@ -530,7 +652,8 @@ server <- function(input, output, session) {
     res <- resultado()
     req(res, input$var_grafico %in% res$prep$respostas, input$fator_x, input$fator_traco)
     validate(need(input$fator_x != input$fator_traco, "Escolha fatores diferentes para o eixo X e para as linhas."))
-    grafico <- tentar(grafico_interacao(res$prep, input$var_grafico, input$fator_x, input$fator_traco, rotulos()))
+    grafico <- tentar(grafico_interacao(res$prep, input$var_grafico, input$fator_x, input$fator_traco, rotulos(),
+                                         estilo = estilo_interacao(), opcoes = res$opcoes))
     validate(need(isTRUE(grafico$ok), paste("Não foi possível gerar o gráfico:", grafico$erro)))
     grafico$valor
   })
@@ -568,6 +691,37 @@ server <- function(input, output, session) {
     ids <- c(res$prep$respostas, res$prep$fatores)
     valores <- lapply(ids, function(id) input[[paste0("rotulo_", id)]] %||% "")
     stats::setNames(valores, ids)
+  })
+
+  estilo_interacao <- reactive({
+    res <- resultado()
+    cores <- list()
+    if (!is.null(res)) {
+      for (f in res$prep$fatores) {
+        cores[[f]] <- lapply(seq_len(nlevels(res$prep$dados[[f]])), function(i) input[[paste0("cor_", f, "_", i)]] %||% "")
+      }
+    }
+    list(tipo = input$interacao_tipo %||% "linhas", paleta = input$interacao_paleta %||% "ranova", cores = cores)
+  })
+
+  output$cores_personalizadas <- renderUI({
+    res <- resultado()
+    req(res, identical(input$interacao_paleta, "personalizada"))
+    fatores_cor <- unique(c(input$fator_traco, if (identical(input$painel_tipo, "interacao")) input$painel_fator_traco))
+    fatores_cor <- fatores_cor[fatores_cor %in% res$prep$fatores]
+    req(length(fatores_cor) > 0)
+    tagList(lapply(fatores_cor, function(f) {
+      niveis <- levels(res$prep$dados[[f]])
+      padrao <- cores_niveis(niveis, "ranova")
+      div(class = "caixa-cores",
+        div(class = "titulo-legenda", icon("palette"), paste(" Cores de", rotulo(res$prep, f))),
+        div(class = "grade-cores", lapply(seq_along(niveis), function(i) {
+          id <- paste0("cor_", f, "_", i)
+          colourpicker::colourInput(id, niveis[i], value = isolate(input[[id]]) %||% unname(padrao[i]),
+                                    showColour = "both", palette = "square", closeOnClick = TRUE)
+        }))
+      )
+    }))
   })
 
   output$painel_graficos_ui <- renderUI({
@@ -645,7 +799,7 @@ server <- function(input, output, session) {
     grafico <- tentar(painel_graficos(
       res$prep, res$opcoes, variaveis, input$painel_tipo,
       fator = input$painel_fator, fator_x = input$painel_fator_x, fator_traco = input$painel_fator_traco,
-      rotulos = rotulos(), ncol = ncol, letras = isTRUE(input$painel_letras)
+      rotulos = rotulos(), ncol = ncol, letras = isTRUE(input$painel_letras), estilo = estilo_interacao()
     ))
     validate(need(isTRUE(grafico$ok), paste("Não foi possível montar o painel:", grafico$erro)))
     list(grafico = grafico$valor, dimensoes = dimensoes_painel(length(variaveis), ncol))
@@ -677,7 +831,8 @@ server <- function(input, output, session) {
           responsavel = input$responsavel_relatorio,
           descricao = input$descricao_relatorio,
           rotulos = rotulos(),
-          painel = painel
+          painel = painel,
+          estilo = estilo_interacao()
         )
       })
     }

@@ -104,3 +104,15 @@ input[type="checkbox"],input[type="radio"] { width:16px; height:16px; margin:0 7
 .caixa-exportacao { justify-content:space-between; }.caixa-exportacao .form-group { margin-bottom:9px; }
 .caixa-exportacao .shiny-options-group { display:flex; gap:4px; }.caixa-exportacao .radio-inline { margin:0; }
 .nav-pills { flex-wrap:wrap; }
+
+/* Estilo do gráfico de interação e cores */
+.caixa-estilo { background:#fbfdff; border:1px solid var(--line); border-radius:10px; padding:10px 12px 0; margin:0 0 10px; }
+.caixa-cores { border-top:1px dashed var(--line); padding-top:8px; margin-bottom:6px; }
+.grade-cores { display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:0 12px; }
+.grade-cores .shiny-input-container { width:100%!important; }
+
+/* Discrepantes */
+.ranova-pill.ranova-atencao { color:#7a5200; background:#fff4d6; }
+.caixa-substituir { background:#fffaf0; border:1px solid #efdcb8; border-radius:10px; padding:12px 14px; margin-top:12px; }
+.caixa-substituir .checkbox { margin:3px 0; }
+.caixa-substituicoes ul { margin:4px 0 8px; padding-left:18px; }
