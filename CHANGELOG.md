@@ -8,6 +8,15 @@ e o projeto usa [Versionamento Semântico](https://semver.org/lang/pt-BR/):
 
 ## [Não lançado]
 
+## [1.7.0] - 2026-09-27
+
+### Adicionado
+
+- Caixa **Aparência dos gráficos** na aba Gráficos: **fonte** (sem serifa,
+  com serifa ou monoespaçada), **tamanho da fonte** e **cor do contorno das
+  barras** (ou sem contorno). Vale para médias, interação, diagnóstico dos
+  resíduos, painel e PDF.
+
 ## [1.6.0] - 2026-09-27
 
 ### Adicionado

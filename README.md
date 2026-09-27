@@ -29,6 +29,7 @@ Aplicativo [Shiny](https://shiny.posit.co/) que dá interface ao pacote R [`rano
   - *Médias* com letras (teste t para 2 níveis, Tukey para 3 ou mais);
   - *Interação*: desdobramento com letras maiúsculas e minúsculas;
   - *Gráficos* de médias (uma cor ou uma cor por nível) e de interação (linhas ou barras com letras), com paletas prontas (inclusive tons de cinza) ou cores escolhidas.
+- **Aparência dos gráficos**: fonte (sem serifa, com serifa ou monoespaçada), tamanho da fonte e cor do contorno das barras (ou sem contorno).
 - **Nomes nos gráficos**: edite como aparecem as variáveis, os fatores e os **níveis dos fatores** (por exemplo, "0" → "Controle") nos eixos, legendas, painel e PDF.
 - **Painel de gráficos**: escolha as variáveis e a ordem e monte um painel com quantos gráficos quiser, identificados por letras (A, B, C, D...).
 - **Exportação dos gráficos** em PNG ou TIFF (LZW), com resolução de 150, 300 ou 600 dpi e tamanho em centímetros.

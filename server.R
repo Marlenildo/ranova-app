@@ -490,6 +490,17 @@ server <- function(input, output, session) {
       title = "Gráficos",
       value = "graficos",
       uiOutput("nomes_graficos"),
+      div(class = "caixa-estilo caixa-aparencia",
+        div(class = "titulo-legenda", icon("font"), " Aparência dos gráficos"),
+        div(class = "grade-aparencia",
+          selectInput("grafico_fonte", "Fonte", choices = FONTES_GRAFICO, selected = isolate(input$grafico_fonte) %||% "sans"),
+          numericInput("grafico_tamanho", "Tamanho da fonte", value = isolate(input$grafico_tamanho) %||% 13, min = 6, max = 30, step = 1),
+          colourpicker::colourInput("grafico_contorno", "Contorno das barras", value = isolate(input$grafico_contorno) %||% CORES_APP$navy,
+                                    showColour = "both", palette = "square", closeOnClick = TRUE),
+          div(class = "caixa-letras", checkboxInput("grafico_sem_contorno", "Sem contorno", isTRUE(isolate(input$grafico_sem_contorno))))
+        ),
+        div(class = "explicacao", "Vale para todos os gráficos: médias, interação, diagnóstico dos resíduos, painel e PDF.")
+      ),
       div(class = "titulo-grafico", "Médias com letras"),
       div(
         class = "grade-campos",
@@ -621,7 +632,7 @@ server <- function(input, output, session) {
   output$grafico_residuos <- renderPlot({
     res <- resultado()
     req(res, input$var_residuos %in% res$prep$respostas)
-    grafico_residuos(res$prep, input$var_residuos)
+    grafico_residuos(res$prep, input$var_residuos, base_size = 13, aparencia = aparencia())
   }, res = 96)
 
   fatores_interacao <- reactive({
@@ -714,7 +725,12 @@ server <- function(input, output, session) {
         cores[[f]] <- lapply(seq_len(nlevels(res$prep$dados[[f]])), function(i) input[[paste0("cor_", f, "_", i)]] %||% "")
       }
     }
-    list(tipo = input$interacao_tipo %||% "linhas", paleta = input$interacao_paleta %||% "ranova", cores = cores)
+    c(list(tipo = input$interacao_tipo %||% "linhas", paleta = input$interacao_paleta %||% "ranova", cores = cores), aparencia())
+  })
+
+  aparencia <- reactive({
+    list(fonte = input$grafico_fonte %||% "sans", tamanho = input$grafico_tamanho %||% 13,
+         contorno = input$grafico_contorno %||% CORES_APP$navy, sem_contorno = isTRUE(input$grafico_sem_contorno))
   })
 
   estilo_medias <- reactive({
@@ -725,8 +741,8 @@ server <- function(input, output, session) {
         cores[[f]] <- lapply(seq_len(nlevels(res$prep$dados[[f]])), function(i) input[[paste0("corm_", f, "_", i)]] %||% "")
       }
     }
-    list(modo = input$medias_modo %||% "unica", paleta = input$medias_paleta %||% "ranova",
-         cor_unica = input$corm_unica %||% "", cores = cores)
+    c(list(modo = input$medias_modo %||% "unica", paleta = input$medias_paleta %||% "ranova",
+           cor_unica = input$corm_unica %||% "", cores = cores), aparencia())
   })
 
   # Seletores de cor do gráfico de médias (ids próprios, separados dos da interação).

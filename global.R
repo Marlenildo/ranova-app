@@ -602,8 +602,25 @@ tabela_interacao <- function(prep, opcoes, fator_linha, fator_coluna) {
 # Gráficos
 # ---------------------------------------------------------
 
-tema_ranova <- function(base_size = 13) {
-  theme_bw(base_size = base_size) +
+FONTES_GRAFICO <- c("Sem serifa (Arial/Helvetica)" = "sans", "Com serifa (Times)" = "serif", "Monoespaçada (Courier)" = "mono")
+
+# Fonte, tamanho e contorno escolhidos pelo usuário. O tamanho informado vale para os
+# gráficos da tela (base 13); painel e PDF usam a mesma proporção sobre a base deles.
+aparencia_grafico <- function(estilo, base_size) {
+  estilo <- estilo %||% list()
+  tamanho <- suppressWarnings(as.numeric(estilo$tamanho %||% 13))
+  if (length(tamanho) != 1 || is.na(tamanho)) tamanho <- 13
+  contorno <- estilo$contorno %||% CORES_APP$navy
+  if (isTRUE(estilo$sem_contorno) || !nzchar(contorno)) contorno <- NA
+  list(
+    tamanho = base_size * max(6, min(30, tamanho)) / 13,
+    fonte = if ((estilo$fonte %||% "sans") %in% FONTES_GRAFICO) estilo$fonte %||% "sans" else "sans",
+    contorno = contorno
+  )
+}
+
+tema_ranova <- function(base_size = 13, familia = "sans") {
+  theme_bw(base_size = base_size, base_family = familia) +
     theme(
       panel.grid = element_blank(),
       panel.border = element_rect(color = "#9FB3C4"),
@@ -639,6 +656,8 @@ rotulos_niveis <- function(prep, fator, rotulos = NULL) {
 
 grafico_medias <- function(prep, opcoes, resposta, fator, rotulos = NULL, base_size = 13, estilo = NULL) {
   estilo <- estilo %||% list()
+  ap <- aparencia_grafico(estilo, base_size)
+  base_size <- ap$tamanho
   medias <- silenciar(medias_fatorial_cld(
     dados = prep$dados,
     resposta = resposta,
@@ -654,7 +673,7 @@ grafico_medias <- function(prep, opcoes, resposta, fator, rotulos = NULL, base_s
 
   paleta <- estilo$paleta %||% "ranova"
   barras <- if (identical(estilo$modo, "niveis")) {
-    list(geom_col(aes(fill = .data$nivel), color = CORES_APP$navy, width = 0.65),
+    list(geom_col(aes(fill = .data$nivel), color = ap$contorno, width = 0.65),
          scale_fill_manual(values = cores_niveis(levels(medias$nivel), paleta, estilo$cores[[fator]]), guide = "none"))
   } else {
     cor <- if (identical(paleta, "personalizada") && grepl("^#[0-9A-Fa-f]{6}", estilo$cor_unica %||% "")) {
@@ -664,17 +683,17 @@ grafico_medias <- function(prep, opcoes, resposta, fator, rotulos = NULL, base_s
     } else {
       CORES_APP$blue
     }
-    list(geom_col(fill = cor, color = CORES_APP$navy, width = 0.65))
+    list(geom_col(fill = cor, color = ap$contorno, width = 0.65))
   }
 
   ggplot(medias, aes(x = .data$nivel, y = .data$media)) +
     barras +
     geom_errorbar(aes(ymin = .data$media - .data$se, ymax = .data$media + .data$se), width = 0.18, color = CORES_APP$ink) +
-    geom_text(aes(y = .data$media + .data$se, label = .data$grupo), vjust = -0.6, size = base_size * 0.33, fontface = "bold", color = CORES_APP$ink) +
+    geom_text(aes(y = .data$media + .data$se, label = .data$grupo), vjust = -0.6, size = base_size * 0.33, fontface = "bold", color = CORES_APP$ink, family = ap$fonte) +
     scale_y_continuous(expand = expansion(mult = c(0, 0.12)), limits = c(0, topo * 1.12)) +
     scale_x_discrete(labels = rotulos_niveis(prep, fator, rotulos)) +
     labs(x = rotulo_grafico(prep, fator, rotulos), y = rotulo_grafico(prep, resposta, rotulos)) +
-    tema_ranova(base_size)
+    tema_ranova(base_size, ap$fonte)
 }
 
 PALETAS <- list(
@@ -708,6 +727,8 @@ cores_niveis <- function(niveis, paleta = "ranova", personalizadas = NULL) {
 grafico_interacao <- function(prep, resposta, fator_x, fator_traco, rotulos = NULL, base_size = 13,
                               estilo = NULL, opcoes = NULL) {
   estilo <- estilo %||% list()
+  ap <- aparencia_grafico(estilo, base_size)
+  base_size <- ap$tamanho
   tipo <- estilo$tipo %||% "linhas"
   niveis_traco <- levels(prep$dados[[fator_traco]])
   cores <- cores_niveis(niveis_traco, estilo$paleta %||% "ranova", estilo$cores[[fator_traco]])
@@ -728,14 +749,14 @@ grafico_interacao <- function(prep, resposta, fator_x, fator_traco, rotulos = NU
     desvio <- position_dodge(width = 0.8)
     return(
       ggplot(medias, aes(x = .data$x, y = .data$media, fill = .data$grupo)) +
-        geom_col(position = desvio, width = 0.75, color = CORES_APP$navy, linewidth = 0.3) +
+        geom_col(position = desvio, width = 0.75, color = ap$contorno, linewidth = 0.3) +
         geom_errorbar(aes(ymin = .data$media - .data$se, ymax = .data$media + .data$se), position = desvio, width = 0.2, color = CORES_APP$ink) +
         geom_text(aes(y = .data$media + .data$se, label = .data$letra), position = desvio, vjust = -0.55,
-                  size = base_size * 0.27, fontface = "bold", color = CORES_APP$ink) +
+                  size = base_size * 0.27, fontface = "bold", color = CORES_APP$ink, family = ap$fonte) +
         scale_fill_manual(values = cores, labels = nomes_traco) +
         scale_y_continuous(expand = expansion(mult = c(0, 0.14)), limits = c(0, topo * 1.14)) +
         rotulos_eixos +
-        tema_ranova(base_size)
+        tema_ranova(base_size, ap$fonte)
     )
   }
 
@@ -747,7 +768,7 @@ grafico_interacao <- function(prep, resposta, fator_x, fator_traco, rotulos = NU
     geom_point(size = base_size * 0.22) +
     scale_color_manual(values = cores, labels = nomes_traco) +
     rotulos_eixos +
-    tema_ranova(base_size)
+    tema_ranova(base_size, ap$fonte)
 }
 
 # Painel com vários gráficos na ordem escolhida, identificados por letras (A, B, C...).
@@ -768,7 +789,8 @@ painel_graficos <- function(prep, opcoes, variaveis, tipo = c("medias", "interac
     ncol = ncol,
     nrow = ceiling(length(graficos) / ncol),
     labels = if (letras) LETTERS[seq_along(graficos)] else NULL,
-    font.label = list(size = 15, face = "bold", color = CORES_APP$navy),
+    font.label = list(size = 15 * aparencia_grafico(estilo_medias %||% estilo, 11)$tamanho / 11, face = "bold",
+                      color = CORES_APP$navy, family = aparencia_grafico(estilo_medias %||% estilo, 11)$fonte),
     common.legend = identical(tipo, "interacao"),
     legend = "bottom",
     align = "hv"
@@ -782,7 +804,9 @@ dimensoes_painel <- function(n, ncol) {
 
 # Quatro gráficos de diagnóstico do modelo (os mesmos de plot() para lm/aov), com as
 # observações mais extremas identificadas pelo número da linha na planilha.
-grafico_residuos <- function(prep, resposta, base_size = 11) {
+grafico_residuos <- function(prep, resposta, base_size = 11, aparencia = NULL) {
+  ap <- aparencia_grafico(aparencia, base_size)
+  base_size <- ap$tamanho
   modelo <- silenciar(ajusta_modelo_fatorial(prep$dados, resposta, prep$bloco, prep$fatores))
   usados <- as.integer(rownames(stats::model.frame(modelo)))
   d <- data.frame(
@@ -797,7 +821,7 @@ grafico_residuos <- function(prep, resposta, base_size = 11) {
   d$raiz <- sqrt(abs(d$padronizado))
   destaque <- d$linha %in% utils::head(d$linha[order(-abs(d$padronizado))], 3)
   rotulos_pontos <- function() geom_text(data = d[destaque, , drop = FALSE], aes(label = .data$linha), vjust = -0.8,
-                                         size = base_size * 0.26, color = CORES_APP$red, fontface = "bold")
+                                         size = base_size * 0.26, color = CORES_APP$red, fontface = "bold", family = ap$fonte)
   pontos <- function() list(geom_point(color = CORES_APP$blue, size = 2.1, alpha = 0.85),
                             scale_y_continuous(expand = expansion(mult = c(0.08, 0.14))))
   suave <- function() geom_smooth(method = "loess", formula = y ~ x, se = FALSE, color = CORES_APP$red, linewidth = 0.6, span = 1)
@@ -805,19 +829,19 @@ grafico_residuos <- function(prep, resposta, base_size = 11) {
   g1 <- ggplot(d, aes(x = .data$ajustado, y = .data$residuo)) +
     geom_hline(yintercept = 0, linetype = "dashed", color = CORES_APP$muted) +
     pontos() + suave() + rotulos_pontos() +
-    labs(x = "Valores ajustados", y = "Resíduos", title = "Resíduos × ajustados") + tema_ranova(base_size)
+    labs(x = "Valores ajustados", y = "Resíduos", title = "Resíduos × ajustados") + tema_ranova(base_size, ap$fonte)
 
   qq <- stats::qqnorm(d$padronizado, plot.it = FALSE)
   d$teorico <- qq$x
   g2 <- ggplot(d, aes(x = .data$teorico, y = .data$padronizado)) +
     geom_abline(intercept = 0, slope = 1, linetype = "dashed", color = CORES_APP$muted) +
     pontos() +
-    geom_text(data = d[destaque, , drop = FALSE], aes(label = .data$linha), vjust = -0.8, size = base_size * 0.26, color = CORES_APP$red, fontface = "bold") +
-    labs(x = "Quantis teóricos", y = "Resíduos padronizados", title = "Normal Q-Q") + tema_ranova(base_size)
+    geom_text(data = d[destaque, , drop = FALSE], aes(label = .data$linha), vjust = -0.8, size = base_size * 0.26, color = CORES_APP$red, fontface = "bold", family = ap$fonte) +
+    labs(x = "Quantis teóricos", y = "Resíduos padronizados", title = "Normal Q-Q") + tema_ranova(base_size, ap$fonte)
 
   g3 <- ggplot(d, aes(x = .data$ajustado, y = .data$raiz)) +
     pontos() + suave() + rotulos_pontos() +
-    labs(x = "Valores ajustados", y = expression(sqrt("|Resíduos padronizados|")), title = "Escala-locação") + tema_ranova(base_size)
+    labs(x = "Valores ajustados", y = expression(sqrt("|Resíduos padronizados|")), title = "Escala-locação") + tema_ranova(base_size, ap$fonte)
 
   p <- modelo$rank
   faixa_h <- range(d$alavancagem)
@@ -834,7 +858,7 @@ grafico_residuos <- function(prep, resposta, base_size = 11) {
               linetype = "dotted", color = CORES_APP$red, inherit.aes = FALSE) +
     pontos() + rotulos_pontos() +
     labs(x = "Alavancagem", y = "Resíduos padronizados", title = "Resíduos × alavancagem",
-         caption = "Linhas pontilhadas: distância de Cook 0,5 e 1") + tema_ranova(base_size) +
+         caption = "Linhas pontilhadas: distância de Cook 0,5 e 1") + tema_ranova(base_size, ap$fonte) +
     theme(plot.caption = element_text(size = base_size * 0.7, color = CORES_APP$muted))
 
   silenciar(ggpubr::ggarrange(g1, g2, g3, g4, ncol = 2, nrow = 2))
@@ -1311,7 +1335,7 @@ gerar_relatorio_pdf <- function(resultado, arquivo, fator_linha = NULL, fator_co
   primeira_diag <- TRUE
   for (v in prep$respostas) local({
     v <- v
-    grafico <- tentar(grafico_residuos(prep, v, base_size = 9))
+    grafico <- tentar(grafico_residuos(prep, v, base_size = 9, aparencia = estilo_medias))
     if (!isTRUE(grafico$ok)) return(NULL)
     altura <- (topo_corpo - base_corpo) / 2 - 0.05
     bloco("Diagnóstico dos resíduos", altura, function(y) {
