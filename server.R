@@ -490,16 +490,24 @@ server <- function(input, output, session) {
       title = "Gráficos",
       value = "graficos",
       uiOutput("nomes_graficos"),
-      div(class = "caixa-estilo caixa-aparencia",
-        div(class = "titulo-legenda", icon("font"), " Aparência dos gráficos"),
+      tags$details(class = "recolhivel",
+        tags$summary(
+          span(class = "recolhivel-icone", icon("sliders")),
+          span(class = "recolhivel-texto", tags$b("Aparência dos gráficos"), span("Fonte, tamanho, negrito e contorno das barras")),
+          span(class = "recolhivel-seta")
+        ),
+        div(class = "recolhivel-corpo",
         div(class = "grade-aparencia",
           selectInput("grafico_fonte", "Fonte", choices = FONTES_GRAFICO, selected = isolate(input$grafico_fonte) %||% "sans"),
           numericInput("grafico_tamanho", "Tamanho da fonte", value = isolate(input$grafico_tamanho) %||% 13, min = 6, max = 30, step = 1),
           colourpicker::colourInput("grafico_contorno", "Contorno das barras", value = isolate(input$grafico_contorno) %||% CORES_APP$navy,
                                     showColour = "both", palette = "square", closeOnClick = TRUE),
-          div(class = "caixa-letras", checkboxInput("grafico_sem_contorno", "Sem contorno", isTRUE(isolate(input$grafico_sem_contorno))))
+          div(class = "caixa-letras",
+            checkboxInput("grafico_sem_contorno", "Sem contorno", isTRUE(isolate(input$grafico_sem_contorno))),
+            checkboxInput("grafico_negrito", "Títulos dos eixos em negrito", !isFALSE(isolate(input$grafico_negrito))))
         ),
         div(class = "explicacao", "Vale para todos os gráficos: médias, interação, diagnóstico dos resíduos, painel e PDF.")
+        )
       ),
       div(class = "titulo-grafico", "Médias com letras"),
       div(
@@ -730,7 +738,8 @@ server <- function(input, output, session) {
 
   aparencia <- reactive({
     list(fonte = input$grafico_fonte %||% "sans", tamanho = input$grafico_tamanho %||% 13,
-         contorno = input$grafico_contorno %||% CORES_APP$navy, sem_contorno = isTRUE(input$grafico_sem_contorno))
+         contorno = input$grafico_contorno %||% CORES_APP$navy, sem_contorno = isTRUE(input$grafico_sem_contorno),
+         negrito = !isFALSE(input$grafico_negrito))
   })
 
   estilo_medias <- reactive({
@@ -842,10 +851,14 @@ server <- function(input, output, session) {
     campo <- function(id, rotulo_campo, padrao) {
       textInput(id, rotulo_campo, value = isolate(input[[id]]) %||% padrao, width = "100%")
     }
-    tags$details(
-      class = "caixa-nomes",
-      tags$summary(class = "titulo-legenda", icon("pen"), " Nomes nos gráficos: variáveis, fatores e níveis (opcional)"),
-      div(class = "explicacao", "Altere como os nomes aparecem nos eixos, nas legendas e nos rótulos dos níveis. Valem para os gráficos abaixo, o painel de gráficos e o PDF; a planilha e as tabelas não mudam."),
+    tags$details(class = "recolhivel",
+      tags$summary(
+        span(class = "recolhivel-icone", icon("pen")),
+        span(class = "recolhivel-texto", tags$b("Nomes nos gráficos"), span("Variáveis, fatores e níveis como devem aparecer")),
+        span(class = "recolhivel-seta")
+      ),
+      div(class = "recolhivel-corpo",
+      div(class = "explicacao", "Valem para os eixos, legendas e níveis dos gráficos, o painel e o PDF. A planilha e as tabelas não mudam; campo em branco usa o nome original."),
       div(class = "grupo-nomes",
         div(class = "subtitulo-nomes", "Variáveis resposta"),
         div(class = "grade-nomes", lapply(prep$respostas, function(v) campo(paste0("rotulo_", v), rotulo(prep, v), rotulo(prep, v))))
@@ -860,6 +873,7 @@ server <- function(input, output, session) {
           )
         )
       })
+      )
     )
   })
 

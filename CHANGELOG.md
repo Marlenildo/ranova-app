@@ -8,6 +8,18 @@ e o projeto usa [Versionamento Semântico](https://semver.org/lang/pt-BR/):
 
 ## [Não lançado]
 
+## [1.8.0] - 2026-09-27
+
+### Adicionado
+
+- Opção de deixar os **títulos dos eixos e da legenda em negrito ou não**.
+
+### Alterado
+
+- "Nomes nos gráficos" e "Aparência dos gráficos" viram barras recolhíveis,
+  **fechadas por padrão**, com ícone, título e resumo do que ajustam; abrem só
+  quando o usuário quiser editar.
+
 ## [1.7.0] - 2026-09-27
 
 ### Adicionado

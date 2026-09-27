@@ -602,7 +602,7 @@ tabela_interacao <- function(prep, opcoes, fator_linha, fator_coluna) {
 # Gráficos
 # ---------------------------------------------------------
 
-FONTES_GRAFICO <- c("Sem serifa (Arial/Helvetica)" = "sans", "Com serifa (Times)" = "serif", "Monoespaçada (Courier)" = "mono")
+FONTES_GRAFICO <- c("Sem serifa (Arial)" = "sans", "Com serifa (Times)" = "serif", "Monoespaçada" = "mono")
 
 # Fonte, tamanho e contorno escolhidos pelo usuário. O tamanho informado vale para os
 # gráficos da tela (base 13); painel e PDF usam a mesma proporção sobre a base deles.
@@ -615,19 +615,20 @@ aparencia_grafico <- function(estilo, base_size) {
   list(
     tamanho = base_size * max(6, min(30, tamanho)) / 13,
     fonte = if ((estilo$fonte %||% "sans") %in% FONTES_GRAFICO) estilo$fonte %||% "sans" else "sans",
-    contorno = contorno
+    contorno = contorno,
+    negrito = !isFALSE(estilo$negrito)
   )
 }
 
-tema_ranova <- function(base_size = 13, familia = "sans") {
+tema_ranova <- function(base_size = 13, familia = "sans", negrito = TRUE) {
   theme_bw(base_size = base_size, base_family = familia) +
     theme(
       panel.grid = element_blank(),
       panel.border = element_rect(color = "#9FB3C4"),
-      axis.title = element_text(face = "bold", color = CORES_APP$ink),
+      axis.title = element_text(face = if (negrito) "bold" else "plain", color = CORES_APP$ink),
       axis.text = element_text(color = CORES_APP$ink),
       legend.position = "bottom",
-      legend.title = element_text(face = "bold"),
+      legend.title = element_text(face = if (negrito) "bold" else "plain"),
       plot.margin = margin(12, 12, 8, 8)
     )
 }
@@ -693,7 +694,7 @@ grafico_medias <- function(prep, opcoes, resposta, fator, rotulos = NULL, base_s
     scale_y_continuous(expand = expansion(mult = c(0, 0.12)), limits = c(0, topo * 1.12)) +
     scale_x_discrete(labels = rotulos_niveis(prep, fator, rotulos)) +
     labs(x = rotulo_grafico(prep, fator, rotulos), y = rotulo_grafico(prep, resposta, rotulos)) +
-    tema_ranova(base_size, ap$fonte)
+    tema_ranova(base_size, ap$fonte, ap$negrito)
 }
 
 PALETAS <- list(
@@ -756,7 +757,7 @@ grafico_interacao <- function(prep, resposta, fator_x, fator_traco, rotulos = NU
         scale_fill_manual(values = cores, labels = nomes_traco) +
         scale_y_continuous(expand = expansion(mult = c(0, 0.14)), limits = c(0, topo * 1.14)) +
         rotulos_eixos +
-        tema_ranova(base_size, ap$fonte)
+        tema_ranova(base_size, ap$fonte, ap$negrito)
     )
   }
 
@@ -768,7 +769,7 @@ grafico_interacao <- function(prep, resposta, fator_x, fator_traco, rotulos = NU
     geom_point(size = base_size * 0.22) +
     scale_color_manual(values = cores, labels = nomes_traco) +
     rotulos_eixos +
-    tema_ranova(base_size, ap$fonte)
+    tema_ranova(base_size, ap$fonte, ap$negrito)
 }
 
 # Painel com vários gráficos na ordem escolhida, identificados por letras (A, B, C...).
@@ -829,7 +830,7 @@ grafico_residuos <- function(prep, resposta, base_size = 11, aparencia = NULL) {
   g1 <- ggplot(d, aes(x = .data$ajustado, y = .data$residuo)) +
     geom_hline(yintercept = 0, linetype = "dashed", color = CORES_APP$muted) +
     pontos() + suave() + rotulos_pontos() +
-    labs(x = "Valores ajustados", y = "Resíduos", title = "Resíduos × ajustados") + tema_ranova(base_size, ap$fonte)
+    labs(x = "Valores ajustados", y = "Resíduos", title = "Resíduos × ajustados") + tema_ranova(base_size, ap$fonte, ap$negrito)
 
   qq <- stats::qqnorm(d$padronizado, plot.it = FALSE)
   d$teorico <- qq$x
@@ -837,11 +838,11 @@ grafico_residuos <- function(prep, resposta, base_size = 11, aparencia = NULL) {
     geom_abline(intercept = 0, slope = 1, linetype = "dashed", color = CORES_APP$muted) +
     pontos() +
     geom_text(data = d[destaque, , drop = FALSE], aes(label = .data$linha), vjust = -0.8, size = base_size * 0.26, color = CORES_APP$red, fontface = "bold", family = ap$fonte) +
-    labs(x = "Quantis teóricos", y = "Resíduos padronizados", title = "Normal Q-Q") + tema_ranova(base_size, ap$fonte)
+    labs(x = "Quantis teóricos", y = "Resíduos padronizados", title = "Normal Q-Q") + tema_ranova(base_size, ap$fonte, ap$negrito)
 
   g3 <- ggplot(d, aes(x = .data$ajustado, y = .data$raiz)) +
     pontos() + suave() + rotulos_pontos() +
-    labs(x = "Valores ajustados", y = expression(sqrt("|Resíduos padronizados|")), title = "Escala-locação") + tema_ranova(base_size, ap$fonte)
+    labs(x = "Valores ajustados", y = expression(sqrt("|Resíduos padronizados|")), title = "Escala-locação") + tema_ranova(base_size, ap$fonte, ap$negrito)
 
   p <- modelo$rank
   faixa_h <- range(d$alavancagem)
@@ -858,7 +859,7 @@ grafico_residuos <- function(prep, resposta, base_size = 11, aparencia = NULL) {
               linetype = "dotted", color = CORES_APP$red, inherit.aes = FALSE) +
     pontos() + rotulos_pontos() +
     labs(x = "Alavancagem", y = "Resíduos padronizados", title = "Resíduos × alavancagem",
-         caption = "Linhas pontilhadas: distância de Cook 0,5 e 1") + tema_ranova(base_size, ap$fonte) +
+         caption = "Linhas pontilhadas: distância de Cook 0,5 e 1") + tema_ranova(base_size, ap$fonte, ap$negrito) +
     theme(plot.caption = element_text(size = base_size * 0.7, color = CORES_APP$muted))
 
   silenciar(ggpubr::ggarrange(g1, g2, g3, g4, ncol = 2, nrow = 2))
