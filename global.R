@@ -794,7 +794,7 @@ interacao_dados <- function(prep, opcoes, resposta, fator_linha, fator_coluna) {
 }
 
 # ---------------------------------------------------------
-# Relatório em PDF (A4 paisagem, desenhado com grid)
+# Relatório em PDF (A4 retrato, desenhado com grid)
 # ---------------------------------------------------------
 
 ler_imagem <- function(caminho) {
@@ -903,7 +903,7 @@ gerar_relatorio_pdf <- function(resultado, arquivo, fator_linha = NULL, fator_co
   descricao <- trimws(descricao %||% "")
   data_hora <- format(Sys.time(), "%d/%m/%Y às %H:%M")
 
-  L <- 11.69; A <- 8.27
+  L <- 8.27; A <- 11.69
   margem <- 0.55
   largura_util <- L - 2 * margem
   topo_corpo <- A - 1.12
@@ -938,84 +938,108 @@ gerar_relatorio_pdf <- function(resultado, arquivo, fator_linha = NULL, fator_co
       }
     }
   }
-  bloco("Resumo", topo_corpo - base_corpo, function(y) {
+  niveis_txt <- vapply(prep$fatores, function(f) paste0(rotulo(prep, f), " (", nlevels(prep$dados[[f]]), " níveis: ",
+                                                            paste(utils::head(levels(prep$dados[[f]]), 8), collapse = ", "),
+                                                            if (nlevels(prep$dados[[f]]) > 8) ", ..." else "", ")"), character(1))
+  itens <- list(
+    c("Fatores", paste(niveis_txt, collapse = "; ")),
+    c("Variáveis resposta", paste(rotulo(prep, prep$respostas), collapse = ", ")),
+    c("Comparação de médias", "Teste t (2 níveis) ou Tukey (3 ou mais níveis)"),
+    c("Erro-padrão das médias", if (identical(opcoes$tipo_se, "descritivo")) "Descritivo (dos dados)" else "Do modelo (médias ajustadas)")
+  )
+  if (nzchar(responsavel)) itens <- c(itens, list(c("Responsável", responsavel)))
+  itens <- c(itens, list(c("Emissão", data_hora)))
+  itens_linhas <- lapply(itens, function(item) quebrar_texto(item[2], largura_util - 2.1, 9))
+  linhas_leitura <- unlist(lapply(leitura, function(t) {
+    q <- quebrar_texto(t, largura_util - 0.5, 8.8)
+    c(paste0("•  ", q[1]), if (length(q) > 1) paste0("    ", q[-1]))
+  }))
+  linhas_descricao <- if (nzchar(descricao)) quebrar_texto(descricao, largura_util, 9) else "Nenhuma descrição informada."
+  linhas_descricao <- utils::head(linhas_descricao, 14)
+  altura_resumo <- 0.85 + 1.05 + 0.34 + sum(vapply(itens_linhas, function(l) 0.32 + 0.19 * (length(l) - 1), numeric(1))) +
+    0.45 + 0.24 + 0.19 * length(linhas_leitura) + 0.5 + 0.3 + 0.19 * length(linhas_descricao)
+
+  bloco("Resumo", altura_resumo, function(y) {
     grid::grid.text(titulo, x = grid::unit(margem, "in"), y = grid::unit(y - 0.18, "in"), just = c("left", "center"),
                     gp = grid::gpar(fontsize = 17, fontface = "bold", col = CORES_APP$navy))
     grid::grid.text("Análise de variância com comparação de médias, gerada com o pacote R ranova.",
                     x = grid::unit(margem, "in"), y = grid::unit(y - 0.46, "in"), just = c("left", "center"),
                     gp = grid::gpar(fontsize = 9, col = CORES_APP$muted))
-    y0 <- y - 0.85
-    rotulo_secao("Identificação", margem, y0)
-    niveis_txt <- vapply(prep$fatores, function(f) paste0(rotulo(prep, f), " (", nlevels(prep$dados[[f]]), " níveis: ",
-                                                              paste(utils::head(levels(prep$dados[[f]]), 6), collapse = ", "),
-                                                              if (nlevels(prep$dados[[f]]) > 6) ", ..." else "", ")"), character(1))
-    itens <- list(
-      c("Delineamento", if (identical(prep$delineamento, "DBC")) paste0("Blocos casualizados (DBC), ", nlevels(prep$dados[[prep$bloco]]), " blocos") else "Inteiramente casualizado (DIC)"),
-      c("Fatores", paste(niveis_txt, collapse = "; ")),
-      c("Variáveis resposta", paste(rotulo(prep, prep$respostas), collapse = ", ")),
-      c("Observações", as.character(prep$n_obs)),
-      c("Significância", paste0(formatC(opcoes$alpha * 100, format = "f", digits = 0), "%")),
-      c("Comparação de médias", "Teste t (2 níveis) ou Tukey (3 ou mais níveis)"),
-      c("Erro-padrão", if (identical(opcoes$tipo_se, "descritivo")) "Descritivo (dos dados)" else "Do modelo (médias ajustadas)")
+
+    # Indicadores no padrão dos cartões do Croma
+    tratamentos <- prod(vapply(prep$fatores, function(f) nlevels(prep$dados[[f]]), numeric(1)))
+    kpis <- list(
+      c("Delineamento", prep$delineamento, if (identical(prep$delineamento, "DBC")) paste(nlevels(prep$dados[[prep$bloco]]), "blocos") else "inteiramente casualizado"),
+      c("Tratamentos", as.character(tratamentos), paste(vapply(prep$fatores, function(f) nlevels(prep$dados[[f]]), numeric(1)), collapse = " × ")),
+      c("Observações", as.character(prep$n_obs), paste(length(prep$respostas), if (length(prep$respostas) == 1) "variável resposta" else "variáveis resposta")),
+      c("Significância", paste0(formatC(opcoes$alpha * 100, format = "f", digits = 0), "%"), "nível dos testes")
     )
-    if (nzchar(responsavel)) itens <- c(itens, list(c("Responsável", responsavel)))
-    itens <- c(itens, list(c("Emissão", data_hora)))
-    yy <- y0 - 0.34
-    for (item in itens) {
-      linhas <- quebrar_texto(item[2], 3.3, 9)
-      grid::grid.text(item[1], x = grid::unit(margem, "in"), y = grid::unit(yy, "in"), just = c("left", "center"),
+    yk <- y - 0.72
+    lk <- (largura_util - 3 * 0.14) / 4
+    for (i in seq_along(kpis)) {
+      xk <- margem + (i - 1) * (lk + 0.14)
+      grid::grid.rect(x = grid::unit(xk, "in"), y = grid::unit(yk, "in"), width = grid::unit(lk, "in"), height = grid::unit(0.85, "in"),
+                      just = c("left", "top"), gp = grid::gpar(fill = CORES_APP$canvas, col = CORES_APP$line))
+      grid::grid.rect(x = grid::unit(xk, "in"), y = grid::unit(yk, "in"), width = grid::unit(0.05, "in"), height = grid::unit(0.85, "in"),
+                      just = c("left", "top"), gp = grid::gpar(fill = CORES_APP$blue, col = NA))
+      grid::grid.text(toupper(kpis[[i]][1]), x = grid::unit(xk + 0.17, "in"), y = grid::unit(yk - 0.17, "in"), just = c("left", "center"),
+                      gp = grid::gpar(fontsize = 7, fontface = "bold", col = CORES_APP$muted))
+      grid::grid.text(kpis[[i]][2], x = grid::unit(xk + 0.17, "in"), y = grid::unit(yk - 0.43, "in"), just = c("left", "center"),
+                      gp = grid::gpar(fontsize = 15, fontface = "bold", col = CORES_APP$navy))
+      grid::grid.text(kpis[[i]][3], x = grid::unit(xk + 0.17, "in"), y = grid::unit(yk - 0.68, "in"), just = c("left", "center"),
+                      gp = grid::gpar(fontsize = 7.2, col = CORES_APP$muted))
+    }
+
+    yy <- yk - 0.85 - 0.38
+    rotulo_secao("Identificação", margem, yy)
+    yy <- yy - 0.34
+    for (k in seq_along(itens)) {
+      linhas <- itens_linhas[[k]]
+      grid::grid.text(itens[[k]][1], x = grid::unit(margem, "in"), y = grid::unit(yy, "in"), just = c("left", "center"),
                       gp = grid::gpar(fontsize = 8.8, col = CORES_APP$muted))
-      for (k in seq_along(linhas)) {
-        grid::grid.text(linhas[k], x = grid::unit(margem + 1.75, "in"), y = grid::unit(yy - (k - 1) * 0.19, "in"), just = c("left", "center"),
+      for (j in seq_along(linhas)) {
+        grid::grid.text(linhas[j], x = grid::unit(margem + 1.9, "in"), y = grid::unit(yy - (j - 1) * 0.19, "in"), just = c("left", "center"),
                         gp = grid::gpar(fontsize = 9, fontface = "bold", col = CORES_APP$ink))
       }
       yy <- yy - 0.19 * (length(linhas) - 1)
-      grid::grid.lines(x = grid::unit(c(margem, margem + 5.1), "in"), y = grid::unit(rep(yy - 0.13, 2), "in"), gp = grid::gpar(col = "#EEF3F7"))
+      grid::grid.lines(x = grid::unit(c(margem, margem + largura_util), "in"), y = grid::unit(rep(yy - 0.13, 2), "in"), gp = grid::gpar(col = "#EEF3F7"))
       yy <- yy - 0.32
     }
-    yy <- yy - 0.1
-    rotulo_secao("Descrição do experimento / observações", margem, yy)
-    linhas <- if (nzchar(descricao)) quebrar_texto(descricao, 5.1, 9) else "Nenhuma descrição informada."
-    max_linhas <- max(1, floor((yy - base_corpo - 0.2) / 0.19))
-    if (length(linhas) > max_linhas) linhas <- c(linhas[seq_len(max_linhas - 1)], paste0(linhas[max_linhas], " [...]"))
-    for (k in seq_along(linhas)) {
-      grid::grid.text(linhas[k], x = grid::unit(margem, "in"), y = grid::unit(yy - 0.3 - (k - 1) * 0.19, "in"), just = c("left", "center"),
-                      gp = grid::gpar(fontsize = 9, fontface = if (nzchar(descricao)) "plain" else "italic", col = if (nzchar(descricao)) "#3E5467" else "#9AAAB8"))
-    }
 
-    # Coluna direita: leitura rápida e pressupostos
-    xd <- margem + 5.6
-    ld <- L - margem - xd
-    rotulo_secao("Leitura rápida", xd, y0)
-    linhas_leitura <- unlist(lapply(leitura, function(t) {
-      q <- quebrar_texto(t, ld - 0.4, 8.8)
-      c(paste0("•  ", q[1]), if (length(q) > 1) paste0("   ", q[-1]))
-    }))
+    yy <- yy - 0.13
+    rotulo_secao("Leitura rápida", margem, yy)
     altura_leitura <- 0.24 + 0.19 * length(linhas_leitura)
-    grid::grid.rect(x = grid::unit(xd, "in"), y = grid::unit(y0 - 0.2, "in"), width = grid::unit(ld, "in"),
-                    height = grid::unit(altura_leitura, "in"), just = c("left", "top"),
-                    gp = grid::gpar(fill = "#F8FBF9", col = "#D5E8DA"))
-    grid::grid.rect(x = grid::unit(xd, "in"), y = grid::unit(y0 - 0.2, "in"), width = grid::unit(0.05, "in"),
+    grid::grid.rect(x = grid::unit(margem, "in"), y = grid::unit(yy - 0.2, "in"), width = grid::unit(largura_util, "in"),
+                    height = grid::unit(altura_leitura, "in"), just = c("left", "top"), gp = grid::gpar(fill = "#F8FBF9", col = "#D5E8DA"))
+    grid::grid.rect(x = grid::unit(margem, "in"), y = grid::unit(yy - 0.2, "in"), width = grid::unit(0.05, "in"),
                     height = grid::unit(altura_leitura, "in"), just = c("left", "top"), gp = grid::gpar(fill = CORES_APP$green, col = NA))
     for (k in seq_along(linhas_leitura)) {
-      grid::grid.text(linhas_leitura[k], x = grid::unit(xd + 0.18, "in"), y = grid::unit(y0 - 0.34 - (k - 1) * 0.19, "in"),
+      grid::grid.text(linhas_leitura[k], x = grid::unit(margem + 0.18, "in"), y = grid::unit(yy - 0.34 - (k - 1) * 0.19, "in"),
                       just = c("left", "center"), gp = grid::gpar(fontsize = 8.8, col = CORES_APP$ink))
     }
-    yp <- y0 - 0.2 - altura_leitura - 0.35
-    rotulo_secao("Pressupostos da ANOVA", xd, yp)
-    if (isTRUE(resultado$diagnostico$ok)) {
-      diag <- resultado$diagnostico$valor
-      marca <- matrix(FALSE, nrow(diag), ncol(diag))
-      marca[, 3] <- diag[[3]] == "Não atendida"
-      marca[, 5] <- diag[[5]] == "Não atendida"
-      names(diag) <- c("Variável", "p\nShapiro-Wilk", "Normalidade", "p\nLevene", "Homogeneidade")
-      desenhar_tabela(diag, xd, yp - 0.16, ld, destaque = marca,
-                      nota = "Em destaque, pressupostos não atendidos na significância escolhida.", tamanho = 8.2)
+
+    yy <- yy - 0.2 - altura_leitura - 0.4
+    rotulo_secao("Descrição do experimento / observações", margem, yy)
+    for (k in seq_along(linhas_descricao)) {
+      grid::grid.text(linhas_descricao[k], x = grid::unit(margem, "in"), y = grid::unit(yy - 0.3 - (k - 1) * 0.19, "in"), just = c("left", "center"),
+                      gp = grid::gpar(fontsize = 9, fontface = if (nzchar(descricao)) "plain" else "italic", col = if (nzchar(descricao)) "#3E5467" else "#9AAAB8"))
     }
   })
 
+  if (isTRUE(resultado$diagnostico$ok)) local({
+    diag <- resultado$diagnostico$valor
+    marca <- matrix(FALSE, nrow(diag), ncol(diag))
+    marca[, 3] <- diag[[3]] == "Não atendida"
+    marca[, 5] <- diag[[5]] == "Não atendida"
+    names(diag) <- c("Variável", "p\nShapiro-Wilk", "Normalidade", "p\nLevene", "Homogeneidade")
+    nota_diag <- "Shapiro-Wilk (normalidade dos resíduos) e Levene (homogeneidade). Em destaque, pressupostos não atendidos."
+    bloco("Resumo", altura_tabela(diag, "Pressupostos da ANOVA", nota_diag) + 0.2, function(y) {
+      desenhar_tabela(diag, margem, y, largura_util, titulo = "Pressupostos da ANOVA", destaque = marca, nota = nota_diag)
+    })
+  })
+
   # ANOVA
-  por_bloco <- if (identical(opcoes$formato, "f_p_colunas")) 4 else 6
+  por_bloco <- if (identical(opcoes$formato, "f_p_colunas")) 3 else 4
   anova <- anova_dados(prep, opcoes$formato, opcoes$digitos_anova)
   grupos <- dividir_colunas(length(prep$respostas), por_bloco)
   for (g in seq_along(grupos)) {
@@ -1037,7 +1061,7 @@ gerar_relatorio_pdf <- function(resultado, arquivo, fator_linha = NULL, fator_co
   for (fator in prep$fatores) {
     medias <- tentar(medias_dados(prep, opcoes, fator))
     if (!isTRUE(medias$ok)) next
-    for (idx in dividir_colunas(length(prep$respostas), 5)) {
+    for (idx in dividir_colunas(length(prep$respostas), 3)) {
       tab <- medias$valor[, c(1, 1 + idx), drop = FALSE]
       titulo_tab <- paste0("Médias ± erro-padrão por ", rotulo(prep, fator))
       nota <- "Médias seguidas pela mesma letra na coluna não diferem entre si pelo teste t (2 níveis) ou Tukey (3 ou mais níveis)."
@@ -1088,13 +1112,13 @@ gerar_relatorio_pdf <- function(resultado, arquivo, fator_linha = NULL, fator_co
   }
   graficos <- Filter(function(g) isTRUE(g$grafico$ok), graficos)
   if (length(graficos) > 0) {
-    for (pagina in split(seq_along(graficos), ceiling(seq_along(graficos) / 4))) {
+    for (pagina in split(seq_along(graficos), ceiling(seq_along(graficos) / 6))) {
       local({
         itens <- graficos[pagina]
         numeros <- pagina
         bloco("Gráficos", topo_corpo - base_corpo, function(y) {
           lg <- (largura_util - 0.3) / 2
-          ag <- (y - base_corpo - 0.35) / 2
+          ag <- (y - base_corpo - 0.3) / 3
           for (k in seq_along(itens)) {
             coluna <- (k - 1) %% 2; linha <- (k - 1) %/% 2
             x0 <- margem + coluna * (lg + 0.3)
@@ -1174,10 +1198,12 @@ gerar_relatorio_pdf <- function(resultado, arquivo, fator_linha = NULL, fator_co
       grid::grid.raster(logo_autor, x = grid::unit(margem + 0.95, "in"), y = grid::unit(0.33, "in"),
                         width = grid::unit(alt * ncol(logo_autor) / nrow(logo_autor), "in"), height = grid::unit(alt, "in"), just = c("left", "center"))
     }
-    grid::grid.text(titulo, x = grid::unit(L / 2, "in"), y = grid::unit(0.33, "in"), gp = grid::gpar(fontsize = 7.2, col = "#8A9AAA"))
+    titulo_rodape <- if (nchar(titulo) > 60) paste0(substr(titulo, 1, 59), "…") else titulo
+    grid::grid.text(titulo_rodape, x = grid::unit(L - margem, "in"), y = grid::unit(0.42, "in"), just = c("right", "center"),
+                    gp = grid::gpar(fontsize = 7.2, fontface = "bold", col = "#587086"))
     grid::grid.text(paste0("Gerado em ", data_hora, "  |  Ranova v", VERSAO_APP, " · pacote ranova ", VERSAO_PACOTE),
-                    x = grid::unit(L - margem, "in"), y = grid::unit(0.33, "in"), just = c("right", "center"),
-                    gp = grid::gpar(fontsize = 7.2, col = "#587086"))
+                    x = grid::unit(L - margem, "in"), y = grid::unit(0.25, "in"), just = c("right", "center"),
+                    gp = grid::gpar(fontsize = 7, col = "#587086"))
     for (item in pg$itens) item$desenhar(item$y)
   }
   invisible(arquivo)

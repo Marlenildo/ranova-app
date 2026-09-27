@@ -8,6 +8,20 @@ e o projeto usa [Versionamento Semântico](https://semver.org/lang/pt-BR/):
 
 ## [Não lançado]
 
+## [1.2.0] - 2026-09-27
+
+### Alterado
+
+- Relatório em PDF passa para **A4 retrato**: primeira página com indicadores
+  (delineamento, tratamentos, observações e significância), identificação,
+  leitura rápida e descrição; pressupostos, ANOVA, médias e desdobramento em
+  tabelas na largura da página; gráficos em grade de 2 × 3, numerados.
+- Tabelas do PDF divididas em partes quando há muitas variáveis resposta.
+
+### Corrigido
+
+- Destaque da tabela de pressupostos no PDF marcava células de outra tabela.
+
 ## [1.1.0] - 2026-09-27
 
 ### Adicionado

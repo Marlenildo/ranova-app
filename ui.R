@@ -132,7 +132,7 @@ ui <- fluidPage(
       ),
 
       cartao(6, "Relatório em PDF", etiqueta = "PRONTO PARA IMPRESSÃO", classe = "painel-relatorio",
-        div(class = "explicacao", "Gera o PDF (A4 paisagem) com resumo, leitura rápida, pressupostos, ANOVA, médias, desdobramento da interação, gráficos e o painel montado acima."),
+        div(class = "explicacao", "Gera o PDF (A4 retrato) com resumo, leitura rápida, pressupostos, ANOVA, médias, desdobramento da interação, gráficos e o painel montado acima."),
         br(),
         fluidRow(
           column(6, textInput("titulo_relatorio", "Título do relatório", value = "Relatório de análise de variância", width = "100%")),
