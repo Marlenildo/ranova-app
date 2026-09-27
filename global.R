@@ -32,6 +32,39 @@ TEXTO_PRIVACIDADE <- paste(
 )
 
 # ---------------------------------------------------------
+# Componentes de interface
+# ---------------------------------------------------------
+
+# Cartão numerado (passo a passo) no estilo dos painéis do Croma.
+cartao <- function(numero = NULL, titulo, ..., icone = NULL, etiqueta = NULL, classe = NULL) {
+  div(
+    class = paste("painel cartao", classe),
+    div(
+      class = "cabecalho-secao",
+      h4(class = "titulo-cartao",
+         if (!is.null(numero)) tags$span(class = "numero-passo", numero) else if (!is.null(icone)) icon(icone),
+         titulo),
+      if (!is.null(etiqueta)) div(class = "tag-secao", etiqueta)
+    ),
+    ...
+  )
+}
+
+# Formato (PNG ou TIFF), resolução (dpi) e tamanho (cm) para baixar um gráfico.
+controles_exportacao <- function(prefixo, largura = 17, altura = 11) {
+  div(
+    class = "caixa-exportacao",
+    div(class = "exportacao-campos",
+      radioButtons(paste0(prefixo, "_formato"), "Formato", choices = c("PNG" = "png", "TIFF" = "tiff"), selected = "png", inline = TRUE),
+      selectInput(paste0(prefixo, "_dpi"), "Resolução", choices = c("150 dpi" = 150, "300 dpi" = 300, "600 dpi" = 600), selected = 300, width = "108px"),
+      numericInput(paste0(prefixo, "_largura"), "Largura (cm)", value = largura, min = 5, max = 60, step = 0.5, width = "92px"),
+      numericInput(paste0(prefixo, "_altura"), "Altura (cm)", value = altura, min = 4, max = 60, step = 0.5, width = "92px")
+    ),
+    downloadButton(paste0("baixar_", prefixo), "Baixar gráfico", icon = icon("download"), class = "btn-secundario")
+  )
+}
+
+# ---------------------------------------------------------
 # Leitura e conversão de dados
 # ---------------------------------------------------------
 
@@ -540,10 +573,11 @@ tabela_interacao <- function(prep, opcoes, fator_linha, fator_coluna) {
 # Gráficos
 # ---------------------------------------------------------
 
-tema_ranova <- function() {
-  theme_bw(base_size = 13) +
+tema_ranova <- function(base_size = 13) {
+  theme_bw(base_size = base_size) +
     theme(
       panel.grid = element_blank(),
+      panel.border = element_rect(color = "#9FB3C4"),
       axis.title = element_text(face = "bold", color = CORES_APP$ink),
       axis.text = element_text(color = CORES_APP$ink),
       legend.position = "bottom",
@@ -552,7 +586,13 @@ tema_ranova <- function() {
     )
 }
 
-grafico_medias <- function(prep, opcoes, resposta, fator) {
+# Rótulo usado nos gráficos: nome digitado pelo usuário ou o nome original da coluna.
+rotulo_grafico <- function(prep, x, rotulos = NULL) {
+  valor <- trimws(rotulos[[x]] %||% "")
+  if (nzchar(valor)) valor else rotulo(prep, x)
+}
+
+grafico_medias <- function(prep, opcoes, resposta, fator, rotulos = NULL, base_size = 13) {
   medias <- silenciar(medias_fatorial_cld(
     dados = prep$dados,
     resposta = resposta,
@@ -569,28 +609,53 @@ grafico_medias <- function(prep, opcoes, resposta, fator) {
   ggplot(medias, aes(x = .data$nivel, y = .data$media)) +
     geom_col(fill = CORES_APP$blue, color = CORES_APP$navy, width = 0.65) +
     geom_errorbar(aes(ymin = .data$media - .data$se, ymax = .data$media + .data$se), width = 0.18, color = CORES_APP$ink) +
-    geom_text(aes(y = .data$media + .data$se, label = .data$grupo), vjust = -0.6, size = 4.6, fontface = "bold", color = CORES_APP$ink) +
+    geom_text(aes(y = .data$media + .data$se, label = .data$grupo), vjust = -0.6, size = base_size * 0.33, fontface = "bold", color = CORES_APP$ink) +
     scale_y_continuous(expand = expansion(mult = c(0, 0.12)), limits = c(0, topo * 1.12)) +
-    labs(x = rotulo(prep, fator), y = rotulo(prep, resposta)) +
-    tema_ranova()
+    labs(x = rotulo_grafico(prep, fator, rotulos), y = rotulo_grafico(prep, resposta, rotulos)) +
+    tema_ranova(base_size)
 }
 
-grafico_interacao <- function(prep, resposta, fator_x, fator_traco) {
-  grafico <- silenciar(grafico_interacao_fatorial(
-    dados = prep$dados,
-    resposta = resposta,
-    fator_x = fator_x,
-    fator_traco = fator_traco,
-    bloco = prep$bloco,
-    fatores = prep$fatores,
-    dic_vars = prep$dic_vars
-  ))
-  n_cores <- nlevels(prep$dados[[fator_traco]])
-  cores <- rep(PALETA_FATORES, length.out = n_cores)
-  grafico +
+grafico_interacao <- function(prep, resposta, fator_x, fator_traco, rotulos = NULL, base_size = 13) {
+  modelo <- silenciar(ajusta_modelo_fatorial(prep$dados, resposta, prep$bloco, prep$fatores))
+  medias <- as.data.frame(silenciar(emmeans::emmeans(modelo, stats::as.formula(paste("~", fator_x, "*", fator_traco)))))
+  cores <- rep(PALETA_FATORES, length.out = nlevels(prep$dados[[fator_traco]]))
+
+  ggplot(medias, aes(x = .data[[fator_x]], y = .data$emmean, group = .data[[fator_traco]], color = .data[[fator_traco]])) +
+    geom_line(linewidth = 0.8) +
+    geom_errorbar(aes(ymin = .data$emmean - .data$SE, ymax = .data$emmean + .data$SE), width = 0.12) +
+    geom_point(size = base_size * 0.22) +
     scale_color_manual(values = cores) +
-    labs(x = rotulo(prep, fator_x), y = rotulo(prep, resposta), color = rotulo(prep, fator_traco)) +
-    tema_ranova()
+    labs(x = rotulo_grafico(prep, fator_x, rotulos), y = rotulo_grafico(prep, resposta, rotulos), color = rotulo_grafico(prep, fator_traco, rotulos)) +
+    tema_ranova(base_size)
+}
+
+# Painel com vários gráficos na ordem escolhida, identificados por letras (A, B, C...).
+painel_graficos <- function(prep, opcoes, variaveis, tipo = c("medias", "interacao"), fator = NULL,
+                            fator_x = NULL, fator_traco = NULL, rotulos = NULL, ncol = 2, letras = TRUE) {
+  tipo <- match.arg(tipo)
+  graficos <- lapply(variaveis, function(v) {
+    if (identical(tipo, "medias")) {
+      grafico_medias(prep, opcoes, v, fator, rotulos, base_size = 11)
+    } else {
+      grafico_interacao(prep, v, fator_x, fator_traco, rotulos, base_size = 11)
+    }
+  })
+  ncol <- max(1L, min(as.integer(ncol), length(graficos)))
+  silenciar(ggpubr::ggarrange(
+    plotlist = graficos,
+    ncol = ncol,
+    nrow = ceiling(length(graficos) / ncol),
+    labels = if (letras) LETTERS[seq_along(graficos)] else NULL,
+    font.label = list(size = 15, face = "bold", color = CORES_APP$navy),
+    common.legend = identical(tipo, "interacao"),
+    legend = "bottom",
+    align = "hv"
+  ))
+}
+
+dimensoes_painel <- function(n, ncol) {
+  ncol <- max(1L, min(as.integer(ncol), n))
+  list(largura = 3.6 * ncol + 0.4, altura = 3.1 * ceiling(n / ncol) + 0.4)
 }
 
 grafico_residuos <- function(prep, resposta) {
@@ -617,161 +682,503 @@ grafico_residuos <- function(prep, resposta) {
   ggpubr::ggarrange(dispersao, qq, ncol = 2)
 }
 
-# ---------------------------------------------------------
-# Relatório HTML
-# ---------------------------------------------------------
-
-imagem_base64 <- function(grafico, largura = 7, altura = 4.5) {
-  arquivo <- tempfile(fileext = ".png")
-  on.exit(unlink(arquivo), add = TRUE)
-  ggsave(arquivo, grafico, width = largura, height = altura, dpi = 150, bg = "white")
-  knitr::image_uri(arquivo)
+# Exporta um gráfico em PNG ou TIFF (LZW) na resolução escolhida.
+salvar_grafico <- function(arquivo, grafico, formato = "png", dpi = 300, largura = 7, altura = 4.5) {
+  dpi <- as.numeric(dpi)
+  if (identical(formato, "tiff")) {
+    ggsave(arquivo, grafico, device = "tiff", width = largura, height = altura, units = "in",
+           dpi = dpi, compression = "lzw", bg = "white")
+  } else {
+    ggsave(arquivo, grafico, device = "png", width = largura, height = altura, units = "in",
+           dpi = dpi, bg = "white")
+  }
 }
 
-gerar_relatorio_html <- function(resultado, caminho, fator_linha = NULL, fator_coluna = NULL,
-                                 titulo = "Relatório de análise de variância", responsavel = "", descricao = "") {
+# ---------------------------------------------------------
+# Tabelas em formato de dados (usadas no PDF)
+#
+# Seguem a mesma lógica das funções do pacote ranova
+# (modelo, emmeans, multcomp::cld com t para 2 níveis e Tukey para 3 ou mais).
+# ---------------------------------------------------------
+
+num_pt <- function(x, digitos = 2) {
+  ifelse(is.na(x), "", formatC(x, format = "f", digits = digitos, decimal.mark = ",", big.mark = "."))
+}
+
+estrelas <- function(p) {
+  ifelse(is.na(p), "", ifelse(p < 0.001, "***", ifelse(p < 0.01, "**", ifelse(p < 0.05, "*", ""))))
+}
+
+anova_dados <- function(prep, formato = "qm_star", digitos = 3) {
+  tabelas <- lapply(prep$respostas, function(v) {
+    modelo <- silenciar(ajusta_modelo_fatorial(prep$dados, v, prep$bloco, prep$fatores))
+    tab <- summary(modelo)[[1]]
+    list(
+      fv = trimws(rownames(tab)), gl = tab$Df, qm = tab$`Mean Sq`, f = tab$`F value`, p = tab$`Pr(>F)`,
+      cv = sqrt(utils::tail(tab$`Mean Sq`, 1)) / mean(prep$dados[[v]], na.rm = TRUE) * 100
+    )
+  })
+  ref <- tabelas[[1]]
+  fv <- ref$fv
+  fv[fv == "Residuals"] <- "Resíduo"
+  fv <- vapply(fv, function(t) if (t == "Resíduo") t else rotulo_termo(prep, t), character(1))
+
+  colunas <- list()
+  destaque <- list()
+  for (i in seq_along(prep$respostas)) {
+    t <- tabelas[[i]]
+    nome <- rotulo(prep, prep$respostas[i])
+    if (identical(formato, "f_p_colunas")) {
+      colunas[[paste0(nome, "\nF")]] <- num_pt(t$f, digitos)
+      colunas[[paste0(nome, "\np")]] <- ifelse(is.na(t$p), "", ifelse(t$p < 0.0001, "< 0,0001", num_pt(t$p, 4)))
+      destaque[[paste0(nome, "\nF")]] <- !is.na(t$p) & t$p < 0.05
+      destaque[[paste0(nome, "\np")]] <- !is.na(t$p) & t$p < 0.05
+    } else if (identical(formato, "f_p_inline")) {
+      colunas[[nome]] <- ifelse(is.na(t$f), "", paste0(num_pt(t$f, digitos), " (", ifelse(t$p < 0.0001, "< 0,0001", num_pt(t$p, 4)), ")"))
+      destaque[[nome]] <- !is.na(t$p) & t$p < 0.05
+    } else {
+      colunas[[nome]] <- trimws(paste(num_pt(t$qm, digitos), estrelas(t$p)))
+      destaque[[nome]] <- !is.na(t$p) & t$p < 0.05
+    }
+  }
+  corpo <- data.frame(FV = fv, GL = as.character(ref$gl), colunas, check.names = FALSE, stringsAsFactors = FALSE)
+  cv <- vapply(tabelas, function(t) num_pt(t$cv, 2), character(1))
+  linha_cv <- c("CV (%)", "", if (identical(formato, "f_p_colunas")) as.vector(rbind(cv, "")) else cv)
+  corpo <- rbind(corpo, stats::setNames(as.list(linha_cv), names(corpo)))
+  marca <- as.data.frame(lapply(names(corpo), function(n) c(destaque[[n]] %||% rep(FALSE, nrow(corpo) - 1), FALSE)),
+                         col.names = names(corpo), check.names = FALSE)
+  nota <- switch(formato,
+    f_p_colunas = "F = valor do teste F; p = valor-p. Em destaque, efeitos significativos a 5%.",
+    f_p_inline = "F (p) = valor do teste F com o valor-p entre parênteses. Em destaque, efeitos significativos a 5%.",
+    "Valores de quadrado médio. * p < 0,05; ** p < 0,01; *** p < 0,001."
+  )
+  list(tabela = corpo, destaque = marca, nota = nota)
+}
+
+medias_dados <- function(prep, opcoes, fator) {
+  colunas <- lapply(prep$respostas, function(v) {
+    m <- silenciar(medias_fatorial_cld(prep$dados, v, fator, prep$bloco, prep$fatores, alpha = opcoes$alpha, tipo_se = opcoes$tipo_se))
+    m <- m[match(levels(prep$dados[[fator]]), as.character(m$nivel)), ]
+    paste0(num_pt(m$media, opcoes$digitos), " ± ", num_pt(m$se, opcoes$digitos), " ", trimws(m$grupo))
+  })
+  names(colunas) <- rotulo(prep, prep$respostas)
+  data.frame(stats::setNames(list(levels(prep$dados[[fator]])), rotulo(prep, fator)), colunas,
+             check.names = FALSE, stringsAsFactors = FALSE)
+}
+
+interacao_dados <- function(prep, opcoes, resposta, fator_linha, fator_coluna) {
+  modelo <- silenciar(ajusta_modelo_fatorial(prep$dados, resposta, prep$bloco, prep$fatores))
+  ajuste <- function(fator) if (nlevels(prep$dados[[fator]]) == 2) "none" else "tukey"
+  letras <- function(formula, fator, conjunto) {
+    em <- silenciar(emmeans::emmeans(modelo, stats::as.formula(formula)))
+    cld <- as.data.frame(silenciar(multcomp::cld(em, alpha = opcoes$alpha, adjust = ajuste(fator), Letters = conjunto, reversed = TRUE)))
+    data.frame(linha = as.character(cld[[fator_linha]]), coluna = as.character(cld[[fator_coluna]]),
+               media = cld$emmean, se = cld$SE, letra = trimws(cld$.group), stringsAsFactors = FALSE)
+  }
+  col <- letras(paste("~", fator_coluna, "|", fator_linha), fator_coluna, LETTERS)
+  lin <- letras(paste("~", fator_linha, "|", fator_coluna), fator_linha, letters)
+  base <- merge(col, lin[, c("linha", "coluna", "letra")], by = c("linha", "coluna"), suffixes = c("_col", "_lin"))
+  if (identical(opcoes$tipo_se, "descritivo")) {
+    se <- stats::aggregate(prep$dados[[resposta]], list(linha = prep$dados[[fator_linha]], coluna = prep$dados[[fator_coluna]]),
+                           function(x) stats::sd(x, na.rm = TRUE) / sqrt(sum(!is.na(x))))
+    base$se <- se$x[match(paste(base$linha, base$coluna), paste(se$linha, se$coluna))]
+  }
+  base$texto <- paste0(num_pt(base$media, opcoes$digitos), " ± ", num_pt(base$se, opcoes$digitos), " ", base$letra_lin, base$letra_col)
+  niveis_l <- levels(prep$dados[[fator_linha]])
+  niveis_c <- levels(prep$dados[[fator_coluna]])
+  saida <- data.frame(stats::setNames(list(niveis_l), rotulo(prep, fator_linha)), check.names = FALSE, stringsAsFactors = FALSE)
+  for (nc in niveis_c) {
+    saida[[nc]] <- base$texto[match(paste(niveis_l, nc), paste(base$linha, base$coluna))]
+  }
+  saida
+}
+
+# ---------------------------------------------------------
+# Relatório em PDF (A4 paisagem, desenhado com grid)
+# ---------------------------------------------------------
+
+ler_imagem <- function(caminho) {
+  if (!file.exists(caminho) || !requireNamespace("png", quietly = TRUE)) return(NULL)
+  tryCatch(png::readPNG(caminho), error = function(e) NULL)
+}
+
+# Largura (em polegadas) de um texto no tamanho de fonte indicado.
+largura_texto <- function(x, tamanho, negrito = FALSE) {
+  linhas <- unlist(strsplit(as.character(x), "\n", fixed = TRUE))
+  if (length(linhas) == 0) return(0)
+  max(vapply(linhas, function(l) {
+    grid::convertWidth(grid::grobWidth(grid::textGrob(l, gp = grid::gpar(fontsize = tamanho, fontface = if (negrito) "bold" else "plain"))), "in", valueOnly = TRUE)
+  }, numeric(1)))
+}
+
+quebrar_texto <- function(texto, largura_in, tamanho) {
+  caracteres <- max(20, floor(largura_in / (tamanho * 0.0075)))
+  unlist(lapply(strsplit(texto, "\n", fixed = TRUE)[[1]], function(p) if (nzchar(trimws(p))) strwrap(p, caracteres) else ""))
+}
+
+# Divide as colunas de resposta em blocos que cabem na largura da página.
+dividir_colunas <- function(n, por) {
+  if (n <= por) return(list(seq_len(n)))
+  split(seq_len(n), ceiling(seq_len(n) / por))
+}
+
+ALTURA_LINHA_TABELA <- 0.27
+
+altura_tabela <- function(tabela, titulo = NULL, nota = NULL) {
+  linhas_cab <- max(1, vapply(names(tabela), function(n) length(strsplit(n, "\n", fixed = TRUE)[[1]]), numeric(1)))
+  (if (!is.null(titulo)) 0.34 else 0) + 0.18 + 0.17 * linhas_cab + nrow(tabela) * ALTURA_LINHA_TABELA +
+    (if (!is.null(nota)) 0.3 else 0.12)
+}
+
+# Tabela no estilo do Croma: cabeçalho azul-marinho, linhas zebradas e destaque opcional por célula.
+desenhar_tabela <- function(tabela, x, y, largura_max, titulo = NULL, nota = NULL, destaque = NULL,
+                            ultima_linha_resumo = FALSE, tamanho = 8.6) {
+  if (!is.null(titulo)) {
+    grid::grid.text(titulo, x = grid::unit(x, "in"), y = grid::unit(y - 0.12, "in"), just = c("left", "center"),
+                    gp = grid::gpar(fontsize = 10, fontface = "bold", col = CORES_APP$navy))
+    y <- y - 0.34
+  }
+  textos <- as.matrix(tabela)
+  textos[is.na(textos)] <- ""
+  cabecalhos <- names(tabela)
+  larguras <- vapply(seq_along(cabecalhos), function(j) {
+    max(largura_texto(cabecalhos[j], tamanho - 0.6, TRUE), max(vapply(textos[, j], largura_texto, numeric(1), tamanho = tamanho, negrito = j == 1))) + 0.24
+  }, numeric(1))
+  if (sum(larguras) > largura_max) {
+    fator <- largura_max / sum(larguras)
+    larguras <- larguras * fator
+    tamanho <- max(6.2, tamanho * fator)
+  } else if (sum(larguras) < largura_max * 0.7) {
+    larguras <- larguras * (largura_max * 0.7 / sum(larguras))
+  }
+  largura_total <- sum(larguras)
+  xs <- x + c(0, cumsum(larguras))
+  linhas_cab <- max(vapply(cabecalhos, function(n) length(strsplit(n, "\n", fixed = TRUE)[[1]]), numeric(1)))
+  altura_cab <- 0.18 + 0.17 * linhas_cab
+
+  grid::grid.rect(x = grid::unit(x, "in"), y = grid::unit(y, "in"), width = grid::unit(largura_total, "in"),
+                  height = grid::unit(altura_cab, "in"), just = c("left", "top"),
+                  gp = grid::gpar(fill = CORES_APP$navy, col = NA))
+  for (j in seq_along(cabecalhos)) {
+    grid::grid.text(cabecalhos[j], x = grid::unit(if (j == 1) xs[j] + 0.1 else xs[j] + larguras[j] / 2, "in"),
+                    y = grid::unit(y - altura_cab / 2, "in"), just = c(if (j == 1) "left" else "center", "center"),
+                    gp = grid::gpar(fontsize = tamanho - 0.6, fontface = "bold", col = "#FFFFFF", lineheight = 0.95))
+  }
+  y <- y - altura_cab
+  for (i in seq_len(nrow(textos))) {
+    resumo <- ultima_linha_resumo && i == nrow(textos)
+    grid::grid.rect(x = grid::unit(x, "in"), y = grid::unit(y, "in"), width = grid::unit(largura_total, "in"),
+                    height = grid::unit(ALTURA_LINHA_TABELA, "in"), just = c("left", "top"),
+                    gp = grid::gpar(fill = if (resumo) CORES_APP$soft else if (i %% 2 == 0) "#F7FAFC" else "#FFFFFF", col = NA))
+    for (j in seq_along(cabecalhos)) {
+      marcado <- !is.null(destaque) && isTRUE(destaque[i, j])
+      if (marcado) {
+        grid::grid.rect(x = grid::unit(xs[j] + 0.04, "in"), y = grid::unit(y - 0.04, "in"),
+                        width = grid::unit(larguras[j] - 0.08, "in"), height = grid::unit(ALTURA_LINHA_TABELA - 0.08, "in"),
+                        just = c("left", "top"), gp = grid::gpar(fill = "#FFF3CD", col = NA))
+      }
+      grid::grid.text(textos[i, j], x = grid::unit(if (j == 1) xs[j] + 0.1 else xs[j] + larguras[j] / 2, "in"),
+                      y = grid::unit(y - ALTURA_LINHA_TABELA / 2, "in"), just = c(if (j == 1) "left" else "center", "center"),
+                      gp = grid::gpar(fontsize = tamanho, fontface = if (j == 1 || marcado || resumo) "bold" else "plain",
+                                      col = if (j == 1 || resumo) CORES_APP$navy else CORES_APP$ink))
+    }
+    grid::grid.lines(x = grid::unit(c(x, x + largura_total), "in"), y = grid::unit(rep(y - ALTURA_LINHA_TABELA, 2), "in"),
+                     gp = grid::gpar(col = if (i == nrow(textos)) CORES_APP$navy else "#E7EEF4", lwd = if (i == nrow(textos)) 1.1 else 0.6))
+    y <- y - ALTURA_LINHA_TABELA
+  }
+  if (!is.null(nota)) {
+    grid::grid.text(nota, x = grid::unit(x, "in"), y = grid::unit(y - 0.15, "in"), just = c("left", "center"),
+                    gp = grid::gpar(fontsize = 7.2, fontface = "italic", col = CORES_APP$muted))
+  }
+}
+
+gerar_relatorio_pdf <- function(resultado, arquivo, fator_linha = NULL, fator_coluna = NULL,
+                                titulo = "Relatório de análise de variância", responsavel = "", descricao = "",
+                                rotulos = NULL, painel = NULL) {
   prep <- resultado$prep
   opcoes <- resultado$opcoes
-  titulo <- if (nzchar(trimws(titulo %||% ""))) trimws(titulo) else "Relatório de análise de variância"
-  css_lightable <- tryCatch(
-    paste(readLines(system.file("lightable-0.0.1", "lightable.css", package = "kableExtra"), warn = FALSE), collapse = "\n"),
-    error = function(e) ""
-  )
-  imagem_arquivo <- function(caminho_img) {
-    tryCatch(knitr::image_uri(caminho_img), error = function(e) NULL)
-  }
-  logo_app <- imagem_arquivo("www/img/logo_app.png")
-  logo_autor <- imagem_arquivo("www/img/logo_marlenildo.png")
+  titulo <- trimws(titulo %||% "")
+  if (!nzchar(titulo)) titulo <- "Relatório de análise de variância"
+  responsavel <- trimws(responsavel %||% "")
+  descricao <- trimws(descricao %||% "")
+  data_hora <- format(Sys.time(), "%d/%m/%Y às %H:%M")
 
-  bloco_tabela <- function(resultado_tabela) {
-    if (isTRUE(resultado_tabela$ok)) {
-      div(class = "tabela", tabela_html(resultado_tabela$valor))
-    } else {
-      tags$p(class = "erro", paste("Não foi possível gerar esta tabela:", resultado_tabela$erro))
+  L <- 11.69; A <- 8.27
+  margem <- 0.55
+  largura_util <- L - 2 * margem
+  topo_corpo <- A - 1.12
+  base_corpo <- 0.78
+  logo_app <- ler_imagem("www/img/logo_app.png")
+  logo_autor <- ler_imagem("www/img/logo_marlenildo.png")
+
+  # ------ Blocos de conteúdo: cada um tem seção, altura e função de desenho ------
+  blocos <- list()
+  bloco <- function(secao, altura, desenhar, nova_pagina = FALSE) {
+    blocos[[length(blocos) + 1]] <<- list(secao = secao, altura = altura, desenhar = desenhar, nova_pagina = nova_pagina)
+  }
+  rotulo_secao <- function(texto, x, y) {
+    grid::grid.text(toupper(texto), x = grid::unit(x, "in"), y = grid::unit(y, "in"), just = c("left", "center"),
+                    gp = grid::gpar(fontsize = 8.2, fontface = "bold", col = CORES_APP$blue))
+  }
+
+  # Página 1: resumo
+  sig <- if (isTRUE(resultado$significancia$ok)) resultado$significancia$valor else NULL
+  leitura <- character()
+  if (!is.null(sig)) {
+    for (v in prep$respostas) {
+      s_v <- sig[sig$variavel == v & sig$significativo, , drop = FALSE]
+      inter <- s_v[s_v$interacao, , drop = FALSE]
+      if (nrow(inter) > 0) {
+        leitura <- c(leitura, paste0(rotulo(prep, v), ": interação ", paste(vapply(inter$termo, function(t) rotulo_termo(prep, t), character(1)), collapse = ", "),
+                                     " significativa (p = ", paste(formatar_p(inter$p), collapse = "; "), "); interprete pelo desdobramento."))
+      } else if (nrow(s_v) > 0) {
+        leitura <- c(leitura, paste0(rotulo(prep, v), ": efeito significativo de ", paste(vapply(s_v$termo, function(t) rotulo_termo(prep, t), character(1)), collapse = ", "), "."))
+      } else {
+        leitura <- c(leitura, paste0(rotulo(prep, v), ": nenhum efeito significativo dos fatores."))
+      }
+    }
+  }
+  bloco("Resumo", topo_corpo - base_corpo, function(y) {
+    grid::grid.text(titulo, x = grid::unit(margem, "in"), y = grid::unit(y - 0.18, "in"), just = c("left", "center"),
+                    gp = grid::gpar(fontsize = 17, fontface = "bold", col = CORES_APP$navy))
+    grid::grid.text("Análise de variância com comparação de médias, gerada com o pacote R ranova.",
+                    x = grid::unit(margem, "in"), y = grid::unit(y - 0.46, "in"), just = c("left", "center"),
+                    gp = grid::gpar(fontsize = 9, col = CORES_APP$muted))
+    y0 <- y - 0.85
+    rotulo_secao("Identificação", margem, y0)
+    niveis_txt <- vapply(prep$fatores, function(f) paste0(rotulo(prep, f), " (", nlevels(prep$dados[[f]]), " níveis: ",
+                                                              paste(utils::head(levels(prep$dados[[f]]), 6), collapse = ", "),
+                                                              if (nlevels(prep$dados[[f]]) > 6) ", ..." else "", ")"), character(1))
+    itens <- list(
+      c("Delineamento", if (identical(prep$delineamento, "DBC")) paste0("Blocos casualizados (DBC), ", nlevels(prep$dados[[prep$bloco]]), " blocos") else "Inteiramente casualizado (DIC)"),
+      c("Fatores", paste(niveis_txt, collapse = "; ")),
+      c("Variáveis resposta", paste(rotulo(prep, prep$respostas), collapse = ", ")),
+      c("Observações", as.character(prep$n_obs)),
+      c("Significância", paste0(formatC(opcoes$alpha * 100, format = "f", digits = 0), "%")),
+      c("Comparação de médias", "Teste t (2 níveis) ou Tukey (3 ou mais níveis)"),
+      c("Erro-padrão", if (identical(opcoes$tipo_se, "descritivo")) "Descritivo (dos dados)" else "Do modelo (médias ajustadas)")
+    )
+    if (nzchar(responsavel)) itens <- c(itens, list(c("Responsável", responsavel)))
+    itens <- c(itens, list(c("Emissão", data_hora)))
+    yy <- y0 - 0.34
+    for (item in itens) {
+      linhas <- quebrar_texto(item[2], 3.3, 9)
+      grid::grid.text(item[1], x = grid::unit(margem, "in"), y = grid::unit(yy, "in"), just = c("left", "center"),
+                      gp = grid::gpar(fontsize = 8.8, col = CORES_APP$muted))
+      for (k in seq_along(linhas)) {
+        grid::grid.text(linhas[k], x = grid::unit(margem + 1.75, "in"), y = grid::unit(yy - (k - 1) * 0.19, "in"), just = c("left", "center"),
+                        gp = grid::gpar(fontsize = 9, fontface = "bold", col = CORES_APP$ink))
+      }
+      yy <- yy - 0.19 * (length(linhas) - 1)
+      grid::grid.lines(x = grid::unit(c(margem, margem + 5.1), "in"), y = grid::unit(rep(yy - 0.13, 2), "in"), gp = grid::gpar(col = "#EEF3F7"))
+      yy <- yy - 0.32
+    }
+    yy <- yy - 0.1
+    rotulo_secao("Descrição do experimento / observações", margem, yy)
+    linhas <- if (nzchar(descricao)) quebrar_texto(descricao, 5.1, 9) else "Nenhuma descrição informada."
+    max_linhas <- max(1, floor((yy - base_corpo - 0.2) / 0.19))
+    if (length(linhas) > max_linhas) linhas <- c(linhas[seq_len(max_linhas - 1)], paste0(linhas[max_linhas], " [...]"))
+    for (k in seq_along(linhas)) {
+      grid::grid.text(linhas[k], x = grid::unit(margem, "in"), y = grid::unit(yy - 0.3 - (k - 1) * 0.19, "in"), just = c("left", "center"),
+                      gp = grid::gpar(fontsize = 9, fontface = if (nzchar(descricao)) "plain" else "italic", col = if (nzchar(descricao)) "#3E5467" else "#9AAAB8"))
+    }
+
+    # Coluna direita: leitura rápida e pressupostos
+    xd <- margem + 5.6
+    ld <- L - margem - xd
+    rotulo_secao("Leitura rápida", xd, y0)
+    linhas_leitura <- unlist(lapply(leitura, function(t) {
+      q <- quebrar_texto(t, ld - 0.4, 8.8)
+      c(paste0("•  ", q[1]), if (length(q) > 1) paste0("   ", q[-1]))
+    }))
+    altura_leitura <- 0.24 + 0.19 * length(linhas_leitura)
+    grid::grid.rect(x = grid::unit(xd, "in"), y = grid::unit(y0 - 0.2, "in"), width = grid::unit(ld, "in"),
+                    height = grid::unit(altura_leitura, "in"), just = c("left", "top"),
+                    gp = grid::gpar(fill = "#F8FBF9", col = "#D5E8DA"))
+    grid::grid.rect(x = grid::unit(xd, "in"), y = grid::unit(y0 - 0.2, "in"), width = grid::unit(0.05, "in"),
+                    height = grid::unit(altura_leitura, "in"), just = c("left", "top"), gp = grid::gpar(fill = CORES_APP$green, col = NA))
+    for (k in seq_along(linhas_leitura)) {
+      grid::grid.text(linhas_leitura[k], x = grid::unit(xd + 0.18, "in"), y = grid::unit(y0 - 0.34 - (k - 1) * 0.19, "in"),
+                      just = c("left", "center"), gp = grid::gpar(fontsize = 8.8, col = CORES_APP$ink))
+    }
+    yp <- y0 - 0.2 - altura_leitura - 0.35
+    rotulo_secao("Pressupostos da ANOVA", xd, yp)
+    if (isTRUE(resultado$diagnostico$ok)) {
+      diag <- resultado$diagnostico$valor
+      marca <- matrix(FALSE, nrow(diag), ncol(diag))
+      marca[, 3] <- diag[[3]] == "Não atendida"
+      marca[, 5] <- diag[[5]] == "Não atendida"
+      names(diag) <- c("Variável", "p\nShapiro-Wilk", "Normalidade", "p\nLevene", "Homogeneidade")
+      desenhar_tabela(diag, xd, yp - 0.16, ld, destaque = marca,
+                      nota = "Em destaque, pressupostos não atendidos na significância escolhida.", tamanho = 8.2)
+    }
+  })
+
+  # ANOVA
+  por_bloco <- if (identical(opcoes$formato, "f_p_colunas")) 4 else 6
+  anova <- anova_dados(prep, opcoes$formato, opcoes$digitos_anova)
+  grupos <- dividir_colunas(length(prep$respostas), por_bloco)
+  for (g in seq_along(grupos)) {
+    idx <- grupos[[g]]
+    cols <- if (identical(opcoes$formato, "f_p_colunas")) c(1, 2, as.vector(rbind(2 + 2 * idx - 1, 2 + 2 * idx))) else c(1, 2, 2 + idx)
+    tab <- anova$tabela[, cols, drop = FALSE]
+    marca <- as.matrix(anova$destaque[, cols, drop = FALSE])
+    titulo_tab <- if (length(grupos) > 1) paste0("Resumo da análise de variância (parte ", g, " de ", length(grupos), ")") else "Resumo da análise de variância"
+    local({
+      tab <- tab; marca <- marca; titulo_tab <- titulo_tab
+      bloco("Análise de variância", altura_tabela(tab, titulo_tab, anova$nota) + 0.2, function(y) {
+        desenhar_tabela(tab, margem, y, largura_util, titulo = titulo_tab, nota = anova$nota, destaque = marca, ultima_linha_resumo = TRUE)
+      }, nova_pagina = g == 1)
+    })
+  }
+
+  # Médias
+  primeira_media <- TRUE
+  for (fator in prep$fatores) {
+    medias <- tentar(medias_dados(prep, opcoes, fator))
+    if (!isTRUE(medias$ok)) next
+    for (idx in dividir_colunas(length(prep$respostas), 5)) {
+      tab <- medias$valor[, c(1, 1 + idx), drop = FALSE]
+      titulo_tab <- paste0("Médias ± erro-padrão por ", rotulo(prep, fator))
+      nota <- "Médias seguidas pela mesma letra na coluna não diferem entre si pelo teste t (2 níveis) ou Tukey (3 ou mais níveis)."
+      local({
+        tab <- tab; titulo_tab <- titulo_tab; nota <- nota
+        bloco("Médias", altura_tabela(tab, titulo_tab, nota) + 0.2, function(y) {
+          desenhar_tabela(tab, margem, y, largura_util, titulo = titulo_tab, nota = nota)
+        }, nova_pagina = primeira_media)
+      })
+      primeira_media <- FALSE
     }
   }
 
-  figura <- function(grafico, legenda, alt) {
-    if (!isTRUE(grafico$ok)) return(NULL)
-    tags$figure(tags$img(src = imagem_base64(grafico$valor), alt = alt), tags$figcaption(legenda))
+  # Desdobramento
+  if (!is.null(fator_linha) && !is.null(fator_coluna)) {
+    primeira <- TRUE
+    for (v in prep$respostas) {
+      inter <- tentar(interacao_dados(prep, opcoes, v, fator_linha, fator_coluna))
+      if (!isTRUE(inter$ok)) next
+      titulo_tab <- paste0(rotulo(prep, v), ": ", rotulo(prep, fator_linha), " × ", rotulo(prep, fator_coluna))
+      nota <- paste0("Minúsculas comparam as linhas dentro de cada coluna; maiúsculas comparam as colunas dentro de cada linha.",
+                     if (length(prep$fatores) == 3) " Médias ajustadas sobre os níveis do fator não exibido." else "")
+      local({
+        tab <- inter$valor; titulo_tab <- titulo_tab; nota <- nota
+        bloco("Desdobramento da interação", altura_tabela(tab, titulo_tab, nota) + 0.2, function(y) {
+          desenhar_tabela(tab, margem, y, largura_util, titulo = titulo_tab, nota = nota)
+        }, nova_pagina = primeira)
+      })
+      primeira <- FALSE
+    }
   }
 
+  # Gráficos: quatro por página (2 × 2)
   graficos <- list()
-  for (resposta in prep$respostas) {
+  for (v in prep$respostas) {
     for (fator in prep$fatores) {
-      graficos[[length(graficos) + 1]] <- figura(
-        tentar(grafico_medias(prep, opcoes, resposta, fator)),
-        paste0(rotulo(prep, resposta), " em função de ", rotulo(prep, fator), "."),
-        paste(rotulo(prep, resposta), "por", rotulo(prep, fator))
+      graficos[[length(graficos) + 1]] <- list(
+        grafico = tentar(grafico_medias(prep, opcoes, v, fator, rotulos, base_size = 10)),
+        legenda = paste0(rotulo_grafico(prep, v, rotulos), " em função de ", rotulo_grafico(prep, fator, rotulos))
       )
     }
     if (!is.null(fator_linha) && !is.null(fator_coluna)) {
-      graficos[[length(graficos) + 1]] <- figura(
-        tentar(grafico_interacao(prep, resposta, fator_linha, fator_coluna)),
-        paste0("Interação ", rotulo(prep, fator_linha), " × ", rotulo(prep, fator_coluna), " para ", rotulo(prep, resposta), "."),
-        paste("Interação para", rotulo(prep, resposta))
+      graficos[[length(graficos) + 1]] <- list(
+        grafico = tentar(grafico_interacao(prep, v, fator_linha, fator_coluna, rotulos, base_size = 10)),
+        legenda = paste0("Interação ", rotulo_grafico(prep, fator_linha, rotulos), " × ", rotulo_grafico(prep, fator_coluna, rotulos), ": ", rotulo_grafico(prep, v, rotulos))
       )
     }
   }
-  graficos <- Filter(Negate(is.null), graficos)
-
-  interacao <- if (!is.null(fator_linha) && !is.null(fator_coluna)) {
-    tagList(
-      tags$h2("Desdobramento da interação"),
-      bloco_tabela(tabela_interacao(prep, opcoes, fator_linha, fator_coluna)),
-      tags$p(class = "nota", "Letras maiúsculas comparam os níveis do fator nas colunas dentro de cada linha; letras minúsculas comparam os níveis do fator nas linhas dentro de cada coluna.")
-    )
+  graficos <- Filter(function(g) isTRUE(g$grafico$ok), graficos)
+  if (length(graficos) > 0) {
+    for (pagina in split(seq_along(graficos), ceiling(seq_along(graficos) / 4))) {
+      local({
+        itens <- graficos[pagina]
+        numeros <- pagina
+        bloco("Gráficos", topo_corpo - base_corpo, function(y) {
+          lg <- (largura_util - 0.3) / 2
+          ag <- (y - base_corpo - 0.35) / 2
+          for (k in seq_along(itens)) {
+            coluna <- (k - 1) %% 2; linha <- (k - 1) %/% 2
+            x0 <- margem + coluna * (lg + 0.3)
+            y0 <- y - linha * (ag + 0.15)
+            grid::grid.text(paste0("Figura ", numeros[k], ". ", itens[[k]]$legenda), x = grid::unit(x0, "in"), y = grid::unit(y0 - 0.1, "in"),
+                            just = c("left", "center"), gp = grid::gpar(fontsize = 8.5, fontface = "bold", col = CORES_APP$navy))
+            vp <- grid::viewport(x = grid::unit(x0, "in"), y = grid::unit(y0 - 0.22, "in"), width = grid::unit(lg, "in"),
+                                 height = grid::unit(ag - 0.25, "in"), just = c("left", "top"))
+            print(itens[[k]]$grafico$valor, vp = vp)
+          }
+        }, nova_pagina = TRUE)
+      })
+    }
   }
 
-  diagnostico <- if (isTRUE(resultado$diagnostico$ok)) {
-    tabela_diagnostico_html(resultado$diagnostico$valor)
+  # Painel de gráficos montado pelo usuário
+  if (!is.null(painel)) {
+    bloco("Painel de gráficos", topo_corpo - base_corpo, function(y) {
+      dims <- painel$dimensoes
+      altura_disp <- y - base_corpo - 0.1
+      escala <- min(largura_util / dims$largura, altura_disp / dims$altura)
+      w <- dims$largura * escala; h <- dims$altura * escala
+      vp <- grid::viewport(x = grid::unit(margem + (largura_util - w) / 2, "in"), y = grid::unit(y - 0.05, "in"),
+                           width = grid::unit(w, "in"), height = grid::unit(h, "in"), just = c("left", "top"))
+      print(painel$grafico, vp = vp)
+    }, nova_pagina = TRUE)
+  }
+
+  # ------ Paginação ------
+  paginas <- list()
+  atual <- NULL
+  y <- topo_corpo
+  for (b in blocos) {
+    cabe <- !is.null(atual) && !b$nova_pagina && (y - b$altura) >= base_corpo && identical(atual$secao, b$secao)
+    if (!cabe) {
+      if (!is.null(atual)) paginas[[length(paginas) + 1]] <- atual
+      atual <- list(secao = b$secao, itens = list())
+      y <- topo_corpo
+    }
+    atual$itens[[length(atual$itens) + 1]] <- list(y = y, desenhar = b$desenhar)
+    y <- y - b$altura
+  }
+  if (!is.null(atual)) paginas[[length(paginas) + 1]] <- atual
+  total <- length(paginas)
+
+  if (capabilities("cairo")) {
+    grDevices::cairo_pdf(arquivo, width = L, height = A, onefile = TRUE, family = "sans")
   } else {
-    tags$p(class = "erro", resultado$diagnostico$erro)
+    grDevices::pdf(arquivo, width = L, height = A, title = titulo)
   }
+  on.exit(grDevices::dev.off(), add = TRUE)
 
-  item_resumo <- function(rotulo_item, valor) {
-    div(class = "kpi", div(class = "kpi-rotulo", rotulo_item), div(class = "kpi-valor", valor))
+  for (n in seq_along(paginas)) {
+    grid::grid.newpage()
+    pg <- paginas[[n]]
+    # Cabeçalho branco, como no Minhas Entregas
+    if (!is.null(logo_app)) {
+      grid::grid.raster(logo_app, x = grid::unit(margem, "in"), y = grid::unit(A - 0.52, "in"),
+                        width = grid::unit(0.5, "in"), height = grid::unit(0.5, "in"), just = c("left", "center"))
+    }
+    grid::grid.text("Ranova", x = grid::unit(margem + 0.62, "in"), y = grid::unit(A - 0.44, "in"), just = c("left", "center"),
+                    gp = grid::gpar(fontsize = 15, fontface = "bold", col = CORES_APP$navy))
+    grid::grid.text("Análise de variância de experimentos fatoriais", x = grid::unit(margem + 0.62, "in"), y = grid::unit(A - 0.64, "in"),
+                    just = c("left", "center"), gp = grid::gpar(fontsize = 8.2, fontface = "bold", col = CORES_APP$blue))
+    grid::grid.text(toupper(pg$secao), x = grid::unit(L - margem, "in"), y = grid::unit(A - 0.44, "in"), just = c("right", "center"),
+                    gp = grid::gpar(fontsize = 8.2, fontface = "bold", col = CORES_APP$navy))
+    grid::grid.text(paste("Página", n, "de", total), x = grid::unit(L - margem, "in"), y = grid::unit(A - 0.64, "in"),
+                    just = c("right", "center"), gp = grid::gpar(fontsize = 7.8, col = CORES_APP$muted))
+    grid::grid.lines(x = grid::unit(c(margem, L - margem), "in"), y = grid::unit(rep(A - 0.86, 2), "in"),
+                     gp = grid::gpar(col = CORES_APP$navy, lwd = 2))
+    # Rodapé com a logo do autor
+    grid::grid.lines(x = grid::unit(c(margem, L - margem), "in"), y = grid::unit(rep(0.58, 2), "in"), gp = grid::gpar(col = CORES_APP$line, lwd = 0.8))
+    grid::grid.text("Desenvolvido por", x = grid::unit(margem, "in"), y = grid::unit(0.33, "in"), just = c("left", "center"),
+                    gp = grid::gpar(fontsize = 7.2, col = "#587086"))
+    if (!is.null(logo_autor)) {
+      alt <- 0.36
+      grid::grid.raster(logo_autor, x = grid::unit(margem + 0.95, "in"), y = grid::unit(0.33, "in"),
+                        width = grid::unit(alt * ncol(logo_autor) / nrow(logo_autor), "in"), height = grid::unit(alt, "in"), just = c("left", "center"))
+    }
+    grid::grid.text(titulo, x = grid::unit(L / 2, "in"), y = grid::unit(0.33, "in"), gp = grid::gpar(fontsize = 7.2, col = "#8A9AAA"))
+    grid::grid.text(paste0("Gerado em ", data_hora, "  |  Ranova v", VERSAO_APP, " · pacote ranova ", VERSAO_PACOTE),
+                    x = grid::unit(L - margem, "in"), y = grid::unit(0.33, "in"), just = c("right", "center"),
+                    gp = grid::gpar(fontsize = 7.2, col = "#587086"))
+    for (item in pg$itens) item$desenhar(item$y)
   }
-
-  pagina <- tags$html(
-    lang = "pt-BR",
-    tags$head(
-      tags$meta(charset = "utf-8"),
-      tags$meta(name = "viewport", content = "width=device-width, initial-scale=1"),
-      tags$title(paste("Ranova ·", titulo)),
-      tags$style(HTML(css_lightable)),
-      tags$style(HTML("
-        :root { --navy:#173b5b; --blue:#2a5c92; --blue-soft:#eaf2fa; --green:#4d965d; --ink:#263b4d; --muted:#627589; --line:#d9e3eb; --red:#b94b4b; }
-        * { box-sizing: border-box; }
-        body { font-family: 'Avenir Next', 'Segoe UI', Arial, sans-serif; color: var(--ink); max-width: 1000px; margin: 0 auto; padding: 0 18px 40px; background: #fff; }
-        .faixa { display: flex; align-items: center; gap: 16px; background: var(--navy); color: #fff; padding: 18px 22px; border-radius: 0 0 12px 12px; }
-        .faixa img { width: 56px; height: 56px; }
-        .faixa .titulo { font-size: 24px; font-weight: 800; }
-        .faixa .sub { color: #b9d1e7; font-size: 13px; margin-top: 2px; }
-        h2 { color: var(--navy); font-size: 18px; border-bottom: 2px solid var(--line); padding-bottom: 6px; margin-top: 30px; }
-        .meta { color: var(--muted); font-size: 13px; margin: 14px 0; }
-        .descricao { background: var(--blue-soft); border-left: 4px solid var(--blue); border-radius: 8px; padding: 10px 14px; white-space: pre-wrap; }
-        .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px; margin: 14px 0; }
-        .kpi { border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; }
-        .kpi-rotulo { color: var(--muted); font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; }
-        .kpi-valor { color: var(--navy); font-size: 15px; font-weight: 800; margin-top: 3px; }
-        .tabela { overflow-x: auto; }
-        table { border-collapse: collapse; margin: 10px 0; }
-        table.lightable-classic { font-family: inherit !important; margin-left: 0 !important; }
-        .ranova-diag-table { width: 100%; }
-        .ranova-diag-table th, .ranova-diag-table td { border-bottom: 1px solid var(--line); padding: 7px 10px; text-align: left; font-size: 13px; }
-        .ranova-diag-table th { background: var(--navy); color: #fff; }
-        .ranova-pill { font-weight: 700; }
-        .ranova-alerta { color: var(--red); }
-        .ranova-ok { color: #347b46; }
-        .nota { color: var(--muted); font-size: 12px; }
-        figure { margin: 18px 0; page-break-inside: avoid; }
-        figure img { max-width: 100%; height: auto; border: 1px solid var(--line); border-radius: 8px; }
-        figcaption { font-size: 12px; color: var(--muted); margin-top: 4px; }
-        .erro { color: var(--red); }
-        .rodape { display: flex; align-items: center; justify-content: center; gap: 10px; margin-top: 36px; padding-top: 14px; border-top: 1px solid var(--line); color: #718498; font-size: 12px; }
-        .rodape img { height: 38px; }
-        @media print { .faixa { -webkit-print-color-adjust: exact; print-color-adjust: exact; } h2 { page-break-after: avoid; } }
-      "))
-    ),
-    tags$body(
-      div(
-        class = "faixa",
-        if (!is.null(logo_app)) tags$img(src = logo_app, alt = "Logo do Ranova"),
-        div(div(class = "titulo", titulo), div(class = "sub", "Ranova · Análise de variância de experimentos fatoriais"))
-      ),
-      tags$p(
-        class = "meta",
-        paste0("Gerado em ", format(resultado$gerado_em, "%d/%m/%Y às %H:%M")),
-        if (nzchar(trimws(responsavel %||% ""))) paste0(" · Responsável: ", trimws(responsavel))
-      ),
-      if (nzchar(trimws(descricao %||% ""))) div(class = "descricao", trimws(descricao)),
-      div(
-        class = "kpis",
-        item_resumo("Delineamento", if (identical(prep$delineamento, "DBC")) "Blocos casualizados (DBC)" else "Inteiramente casualizado (DIC)"),
-        item_resumo("Fatores", paste(rotulo(prep, prep$fatores), collapse = " × ")),
-        item_resumo("Observações", prep$n_obs),
-        item_resumo("Significância", paste0(formatC(opcoes$alpha * 100, format = "f", digits = 0), "%"))
-      ),
-      tags$p(class = "nota", tags$b("Variáveis resposta: "), paste(rotulo(prep, prep$respostas), collapse = ", ")),
-      tags$h2("Análise de variância"),
-      bloco_tabela(resultado$anova),
-      tags$h2("Pressupostos da ANOVA"),
-      diagnostico,
-      tags$h2("Médias"),
-      lapply(resultado$medias, bloco_tabela),
-      tags$p(class = "nota", "Médias seguidas pela mesma letra não diferem entre si pelo teste t (2 níveis) ou Tukey (3 ou mais níveis)."),
-      interacao,
-      if (length(graficos) > 0) tagList(tags$h2("Gráficos"), graficos),
-      div(
-        class = "rodape",
-        tags$span("Desenvolvido por"),
-        if (!is.null(logo_autor)) tags$img(src = logo_autor, alt = "Marlenildo Soluções em Curso"),
-        tags$span(paste0("Ranova v", VERSAO_APP, " · pacote ranova ", VERSAO_PACOTE))
-      )
-    )
-  )
-
-  writeLines(c("<!DOCTYPE html>", as.character(pagina)), caminho, useBytes = TRUE)
-  invisible(caminho)
+  invisible(arquivo)
 }

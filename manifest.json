@@ -2377,6 +2377,27 @@
         "Built": "R 4.3.2; ; 'Tue, 16 Jan 2024 16:58:42 +0100'; unix"
       }
     },
+    "png": {
+      "Source": "CRAN",
+      "Repository": "https://cloud.r-project.org",
+      "description": {
+        "Package": "png",
+        "Version": "0.1-8",
+        "Title": "Read and write PNG images",
+        "Author": "Simon Urbanek <Simon.Urbanek@r-project.org>",
+        "Maintainer": "Simon Urbanek <Simon.Urbanek@r-project.org>",
+        "Depends": "R (>= 2.9.0)",
+        "Description": "This package provides an easy and simple way to read, write and display bitmap images stored in the PNG format. It can read and write both files and in-memory raw vectors.",
+        "License": "GPL-2 | GPL-3",
+        "SystemRequirements": "libpng",
+        "URL": "http://www.rforge.net/png/",
+        "NeedsCompilation": "yes",
+        "Packaged": "2022-11-29 09:42:31 UTC; rforge",
+        "Repository": "CRAN",
+        "Date/Publication": "2022-11-29 11:12:53 UTC",
+        "Built": "R 4.3.3; x86_64-pc-linux-gnu; 'Mon, 01 Apr 2024 18:24:23 +1100'; unix"
+      }
+    },
     "polynom": {
       "Source": "CRAN",
       "Repository": "https://cloud.r-project.org",
@@ -3670,19 +3691,19 @@
       "checksum": "815f1dbae7167d84fbfce0de6b2a1cde"
     },
     "DESCRIPTION": {
-      "checksum": "597fade30a07fa619f74394d0e0f0141"
+      "checksum": "97b489c054cdac314cc174fab011fc08"
     },
     "global.R": {
-      "checksum": "bd40778aa4d81c973afbb54c77954f2f"
+      "checksum": "619eeb3667e9fabdae62340f4d9e2480"
     },
     "server.R": {
-      "checksum": "76b1851d7cee693279f7f44233fd78bd"
+      "checksum": "f386b45a3e9791daa0da7707f7d3b719"
     },
     "ui.R": {
-      "checksum": "7b24389aa5f6668759f4f4f5e9d1561b"
+      "checksum": "6749198ebd78c721c05fc1c1fb93fdf3"
     },
     "www/css/app.css": {
-      "checksum": "9fa54817418b5d2fe63a960d5563837f"
+      "checksum": "fda772c56f4ca5f0f483d7f8f194b8df"
     },
     "www/img/favicon.png": {
       "checksum": "f4fb5d2fe18b011cf4ad3b3ed8eb9bbf"

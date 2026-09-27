@@ -8,7 +8,7 @@
   <img alt="R >= 4.1" src="https://img.shields.io/badge/R-%E2%89%A5%204.1-173b5b">
 </p>
 
-**Análise de variância de experimentos fatoriais** — digite ou importe seus dados e gere ANOVA, médias com letras, desdobramentos e gráficos prontos para o relatório.
+**Análise de variância de experimentos fatoriais** — digite ou importe seus dados e gere ANOVA, médias com letras, desdobramentos, gráficos e relatório em PDF.
 
 Aplicativo [Shiny](https://shiny.posit.co/) que dá interface ao pacote R [`ranova`](https://github.com/Marlenildo/ranova).
 
@@ -26,8 +26,10 @@ Aplicativo [Shiny](https://shiny.posit.co/) que dá interface ao pacote R [`rano
   - *Pressupostos*: Shapiro-Wilk, Levene e gráficos de resíduos;
   - *Médias* com letras (teste t para 2 níveis, Tukey para 3 ou mais);
   - *Interação*: desdobramento com letras maiúsculas e minúsculas;
-  - *Gráficos* de médias e de interação, com download em PNG.
-- **Relatório** (HTML pronto para impressão ou para salvar em PDF), com título, responsável e descrição do experimento.
+  - *Gráficos* de médias e de interação.
+- **Painel de gráficos**: escolha as variáveis e a ordem, dê nomes aos eixos e legendas e monte um painel com quantos gráficos quiser, identificados por letras (A, B, C, D...).
+- **Exportação dos gráficos** em PNG ou TIFF (LZW), com resolução de 150, 300 ou 600 dpi e tamanho em centímetros.
+- **Relatório em PDF** (A4 paisagem, no padrão do Croma, com cabeçalho branco): resumo do experimento, leitura rápida dos efeitos, pressupostos, ANOVA, médias, desdobramento da interação, gráficos numerados e o painel montado no app.
 
 Os dados ficam apenas na sessão aberta: nada é gravado em banco de dados, arquivos ou cookies.
 
@@ -36,7 +38,7 @@ Os dados ficam apenas na sessão aberta: nada é gravado em banco de dados, arqu
 Requer R 4.1 ou superior.
 
 ```r
-install.packages(c("shiny", "remotes", "rhandsontable", "readxl", "writexl"))
+install.packages(c("shiny", "remotes", "rhandsontable", "readxl", "writexl", "png"))
 remotes::install_github("Marlenildo/ranova")
 shiny::runApp()
 ```
@@ -74,7 +76,7 @@ No DIC, a coluna de bloco pode ser trocada por uma de repetição (ela não entr
 
 ## Estrutura
 
-- `app.R`: ponto de entrada · `ui.R`: interface · `server.R`: lógica · `global.R`: leitura dos dados, análise, gráficos e relatório
+- `app.R`: ponto de entrada · `ui.R`: interface · `server.R`: lógica · `global.R`: leitura dos dados, análise, gráficos e relatório PDF
 - `www/`: estilos e imagens · `scripts/gerar_logo_app.R`: gera a logo do app
 - `DESCRIPTION`: versão e dependências · `CHANGELOG.md`: histórico · `CITATION.cff`: citação · `LICENSE`: licença MIT
 

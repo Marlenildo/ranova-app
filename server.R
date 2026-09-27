@@ -363,7 +363,7 @@ server <- function(input, output, session) {
         selectInput("fator_grafico", "Fator", choices = fatores)
       ),
       plotOutput("grafico_medias", height = 360),
-      downloadButton("baixar_grafico_medias", "Baixar gráfico (.png)", class = "btn-secundario"),
+      controles_exportacao("medias", largura = 17, altura = 11),
       if (varios_fatores) {
         tagList(
           tags$hr(),
@@ -374,7 +374,7 @@ server <- function(input, output, session) {
             selectInput("fator_traco", "Fator nas linhas (cores)", choices = fatores, selected = prep$fatores[2])
           ),
           plotOutput("grafico_interacao", height = 360),
-          downloadButton("baixar_grafico_interacao", "Baixar gráfico (.png)", class = "btn-secundario")
+          controles_exportacao("interacao", largura = 17, altura = 11)
         )
       }
     )
@@ -404,9 +404,9 @@ server <- function(input, output, session) {
 
   output$botao_relatorio <- renderUI({
     if (is.null(resultado())) {
-      return(tags$button(class = "btn btn-pdf", disabled = "disabled", icon("download"), " Baixar relatório"))
+      return(tags$button(class = "btn btn-pdf", disabled = "disabled", icon("download"), " Baixar relatório PDF"))
     }
-    downloadButton("baixar_relatorio", "Baixar relatório", icon = icon("download"), class = "btn-pdf")
+    downloadButton("baixar_relatorio", "Baixar relatório PDF", icon = icon("download"), class = "btn-pdf")
   })
 
   significancia_atual <- reactive({
@@ -503,7 +503,7 @@ server <- function(input, output, session) {
   grafico_medias_atual <- reactive({
     res <- resultado()
     req(res, input$var_grafico %in% res$prep$respostas, input$fator_grafico %in% res$prep$fatores)
-    grafico <- tentar(grafico_medias(res$prep, res$opcoes, input$var_grafico, input$fator_grafico))
+    grafico <- tentar(grafico_medias(res$prep, res$opcoes, input$var_grafico, input$fator_grafico, rotulos()))
     validate(need(isTRUE(grafico$ok), paste("Não foi possível gerar o gráfico:", grafico$erro)))
     grafico$valor
   })
@@ -512,7 +512,7 @@ server <- function(input, output, session) {
     res <- resultado()
     req(res, input$var_grafico %in% res$prep$respostas, input$fator_x, input$fator_traco)
     validate(need(input$fator_x != input$fator_traco, "Escolha fatores diferentes para o eixo X e para as linhas."))
-    grafico <- tentar(grafico_interacao(res$prep, input$var_grafico, input$fator_x, input$fator_traco))
+    grafico <- tentar(grafico_interacao(res$prep, input$var_grafico, input$fator_x, input$fator_traco, rotulos()))
     validate(need(isTRUE(grafico$ok), paste("Não foi possível gerar o gráfico:", grafico$erro)))
     grafico$valor
   })
@@ -520,22 +520,130 @@ server <- function(input, output, session) {
   output$grafico_medias <- renderPlot(grafico_medias_atual(), res = 96)
   output$grafico_interacao <- renderPlot(grafico_interacao_atual(), res = 96)
 
-  nome_grafico <- function(prefixo) {
-    paste0(prefixo, "_", nome_seguro(rotulo(resultado()$prep, input$var_grafico)), ".png")
+  nome_grafico <- function(prefixo, nome, formato) {
+    paste0("ranova_", prefixo, "_", nome_seguro(nome), ".", if (identical(formato, "tiff")) "tif" else "png")
   }
 
-  output$baixar_grafico_medias <- downloadHandler(
-    filename = function() nome_grafico("medias"),
-    content = function(file) ggsave(file, grafico_medias_atual(), width = 7, height = 4.5, dpi = 300, bg = "white")
-  )
+  # Baixa um gráfico no formato, resolução e tamanho (cm) escolhidos nos controles `prefixo_*`.
+  download_grafico <- function(prefixo, grafico, nome) {
+    downloadHandler(
+      filename = function() nome_grafico(prefixo, nome(), input[[paste0(prefixo, "_formato")]] %||% "png"),
+      content = function(file) {
+        largura <- max(5, min(60, as.numeric(input[[paste0(prefixo, "_largura")]] %||% 17)))
+        altura <- max(4, min(60, as.numeric(input[[paste0(prefixo, "_altura")]] %||% 11)))
+        salvar_grafico(file, grafico(), input[[paste0(prefixo, "_formato")]] %||% "png",
+                       input[[paste0(prefixo, "_dpi")]] %||% 300, largura / 2.54, altura / 2.54)
+      }
+    )
+  }
 
-  output$baixar_grafico_interacao <- downloadHandler(
-    filename = function() nome_grafico("interacao"),
-    content = function(file) ggsave(file, grafico_interacao_atual(), width = 7, height = 4.5, dpi = 300, bg = "white")
-  )
+  output$baixar_medias <- download_grafico("medias", grafico_medias_atual, function() rotulo(resultado()$prep, input$var_grafico))
+  output$baixar_interacao <- download_grafico("interacao", grafico_interacao_atual, function() rotulo(resultado()$prep, input$var_grafico))
+
+  # ---------------------------------------------------------
+  # Nomes nos gráficos e painel agrupado
+  # ---------------------------------------------------------
+
+  rotulos <- reactive({
+    res <- resultado()
+    if (is.null(res)) return(list())
+    ids <- c(res$prep$respostas, res$prep$fatores)
+    valores <- lapply(ids, function(id) input[[paste0("rotulo_", id)]] %||% "")
+    stats::setNames(valores, ids)
+  })
+
+  output$painel_graficos_ui <- renderUI({
+    res <- resultado()
+    if (is.null(res)) {
+      return(div(
+        class = "nenhum-resultado",
+        icon("images"),
+        tags$b("Disponível após a análise"),
+        tags$span("Depois de analisar, escolha as variáveis, a ordem e os nomes para montar um painel com letras A, B, C...")
+      ))
+    }
+    prep <- res$prep
+    fatores <- opcoes_fatores(prep)
+    varios <- length(prep$fatores) >= 2
+    tagList(
+      fluidRow(
+        column(6,
+          radioButtons("painel_tipo", "Tipo de gráfico", inline = TRUE,
+            choices = c("Médias com letras" = "medias", if (varios) c("Interação" = "interacao")), selected = "medias"),
+          conditionalPanel("input.painel_tipo == 'medias'",
+            selectInput("painel_fator", "Fator no eixo X", choices = fatores, width = "100%")),
+          if (varios) conditionalPanel("input.painel_tipo == 'interacao'",
+            div(class = "grade-campos",
+              selectInput("painel_fator_x", "Fator no eixo X", choices = fatores, selected = prep$fatores[1]),
+              selectInput("painel_fator_traco", "Fator nas cores", choices = fatores, selected = prep$fatores[2])))
+        ),
+        column(6,
+          selectizeInput("painel_variaveis", "Variáveis, na ordem do painel", choices = opcoes_respostas(prep),
+            selected = prep$respostas, multiple = TRUE, width = "100%",
+            options = list(plugins = list("remove_button"), placeholder = "Escolha as variáveis")),
+          div(class = "grade-campos",
+            selectInput("painel_colunas", "Gráficos por linha", choices = 1:4, selected = min(2, length(prep$respostas))),
+            div(class = "caixa-letras", checkboxInput("painel_letras", "Identificar com letras (A, B, C...)", TRUE))
+          )
+        )
+      ),
+      div(class = "explicacao", "A ordem das variáveis no campo acima define a posição e a letra de cada gráfico. Para mudar a ordem, remova (×) e selecione de novo."),
+      uiOutput("painel_nomes"),
+      div(class = "area-painel", plotOutput("painel_grafico", height = "auto")),
+      controles_exportacao("painel", largura = 17, altura = 14),
+      checkboxInput("painel_no_pdf", "Incluir este painel no relatório PDF", TRUE)
+    )
+  })
+
+  output$painel_nomes <- renderUI({
+    res <- resultado()
+    req(res)
+    prep <- res$prep
+    fatores_usados <- if (identical(input$painel_tipo, "interacao")) c(input$painel_fator_x, input$painel_fator_traco) else input$painel_fator
+    ids <- c(input$painel_variaveis, fatores_usados)
+    ids <- ids[ids %in% c(prep$respostas, prep$fatores)]
+    req(length(ids) > 0)
+    div(
+      class = "caixa-nomes",
+      div(class = "titulo-legenda", icon("pen"), " Nomes nos gráficos (eixos e legendas)"),
+      div(class = "grade-nomes", lapply(ids, function(id) {
+        textInput(paste0("rotulo_", id), rotulo(prep, id), value = isolate(input[[paste0("rotulo_", id)]]) %||% rotulo(prep, id), width = "100%")
+      }))
+    )
+  })
+
+  painel_atual <- reactive({
+    res <- resultado()
+    req(res, length(input$painel_variaveis) > 0, input$painel_tipo)
+    variaveis <- input$painel_variaveis[input$painel_variaveis %in% res$prep$respostas]
+    req(length(variaveis) > 0)
+    if (identical(input$painel_tipo, "interacao")) {
+      req(input$painel_fator_x, input$painel_fator_traco)
+      validate(need(input$painel_fator_x != input$painel_fator_traco, "Escolha fatores diferentes para o eixo X e para as cores."))
+    } else {
+      req(input$painel_fator %in% res$prep$fatores)
+    }
+    ncol <- as.integer(input$painel_colunas %||% 2)
+    grafico <- tentar(painel_graficos(
+      res$prep, res$opcoes, variaveis, input$painel_tipo,
+      fator = input$painel_fator, fator_x = input$painel_fator_x, fator_traco = input$painel_fator_traco,
+      rotulos = rotulos(), ncol = ncol, letras = isTRUE(input$painel_letras)
+    ))
+    validate(need(isTRUE(grafico$ok), paste("Não foi possível montar o painel:", grafico$erro)))
+    list(grafico = grafico$valor, dimensoes = dimensoes_painel(length(variaveis), ncol))
+  })
+
+  output$painel_grafico <- renderPlot({
+    painel_atual()$grafico
+  }, res = 96, height = function() {
+    dims <- tryCatch(painel_atual()$dimensoes, error = function(e) NULL)
+    if (is.null(dims)) 300 else round(dims$altura / dims$largura * min(900, session$clientData$output_painel_grafico_width %||% 800))
+  })
+
+  output$baixar_painel <- download_grafico("painel", function() painel_atual()$grafico, function() "painel")
 
   output$baixar_relatorio <- downloadHandler(
-    filename = function() paste0("ranova_relatorio_", format(Sys.time(), "%Y%m%d_%H%M"), ".html"),
+    filename = function() paste0("ranova_relatorio_", format(Sys.time(), "%Y%m%d_%H%M"), ".pdf"),
     content = function(file) {
       res <- resultado()
       req(res)
@@ -543,12 +651,15 @@ server <- function(input, output, session) {
         escolhidos <- c(input$fator_linha, input$fator_coluna)
         if (length(escolhidos) == 2 && escolhidos[1] != escolhidos[2]) escolhidos else res$prep$fatores[1:2]
       }
-      withProgress(message = "Gerando relatório...", value = 0.4, {
-        gerar_relatorio_html(
+      painel <- if (isTRUE(input$painel_no_pdf)) tryCatch(painel_atual(), error = function(e) NULL)
+      withProgress(message = "Gerando relatório PDF...", value = 0.4, {
+        gerar_relatorio_pdf(
           res, file, pares[1], pares[2],
           titulo = input$titulo_relatorio,
           responsavel = input$responsavel_relatorio,
-          descricao = input$descricao_relatorio
+          descricao = input$descricao_relatorio,
+          rotulos = rotulos(),
+          painel = painel
         )
       })
     }
