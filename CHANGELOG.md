@@ -8,6 +8,14 @@ e o projeto usa [Versionamento Semântico](https://semver.org/lang/pt-BR/):
 
 ## [Não lançado]
 
+## [1.5.0] - 2026-09-27
+
+### Adicionado
+
+- Cores também no **gráfico de médias de um fator**: uma cor para todas as
+  barras ou uma cor por nível, com as mesmas paletas da interação (inclusive
+  tons de cinza) ou cores escolhidas. Vale para o gráfico, o painel e o PDF.
+
 ## [1.4.0] - 2026-09-27
 
 ### Adicionado

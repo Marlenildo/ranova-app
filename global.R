@@ -621,7 +621,10 @@ rotulo_grafico <- function(prep, x, rotulos = NULL) {
   if (nzchar(valor)) valor else rotulo(prep, x)
 }
 
-grafico_medias <- function(prep, opcoes, resposta, fator, rotulos = NULL, base_size = 13) {
+# Cores das barras: `estilo$modo` "unica" (todas iguais) ou "niveis" (uma por nível do fator),
+# com paleta pronta ou cores escolhidas (`estilo$cor_unica` e `estilo$cores[[fator]]`).
+grafico_medias <- function(prep, opcoes, resposta, fator, rotulos = NULL, base_size = 13, estilo = NULL) {
+  estilo <- estilo %||% list()
   medias <- silenciar(medias_fatorial_cld(
     dados = prep$dados,
     resposta = resposta,
@@ -635,8 +638,23 @@ grafico_medias <- function(prep, opcoes, resposta, fator, rotulos = NULL, base_s
   medias$grupo <- trimws(medias$grupo)
   topo <- max(medias$media + medias$se, na.rm = TRUE)
 
+  paleta <- estilo$paleta %||% "ranova"
+  barras <- if (identical(estilo$modo, "niveis")) {
+    list(geom_col(aes(fill = .data$nivel), color = CORES_APP$navy, width = 0.65),
+         scale_fill_manual(values = cores_niveis(levels(medias$nivel), paleta, estilo$cores[[fator]]), guide = "none"))
+  } else {
+    cor <- if (identical(paleta, "personalizada") && grepl("^#[0-9A-Fa-f]{6}", estilo$cor_unica %||% "")) {
+      estilo$cor_unica
+    } else if (paleta %in% names(PALETAS)) {
+      PALETAS[[paleta]]$cores(1)[1]
+    } else {
+      CORES_APP$blue
+    }
+    list(geom_col(fill = cor, color = CORES_APP$navy, width = 0.65))
+  }
+
   ggplot(medias, aes(x = .data$nivel, y = .data$media)) +
-    geom_col(fill = CORES_APP$blue, color = CORES_APP$navy, width = 0.65) +
+    barras +
     geom_errorbar(aes(ymin = .data$media - .data$se, ymax = .data$media + .data$se), width = 0.18, color = CORES_APP$ink) +
     geom_text(aes(y = .data$media + .data$se, label = .data$grupo), vjust = -0.6, size = base_size * 0.33, fontface = "bold", color = CORES_APP$ink) +
     scale_y_continuous(expand = expansion(mult = c(0, 0.12)), limits = c(0, topo * 1.12)) +
@@ -715,11 +733,12 @@ grafico_interacao <- function(prep, resposta, fator_x, fator_traco, rotulos = NU
 
 # Painel com vários gráficos na ordem escolhida, identificados por letras (A, B, C...).
 painel_graficos <- function(prep, opcoes, variaveis, tipo = c("medias", "interacao"), fator = NULL,
-                            fator_x = NULL, fator_traco = NULL, rotulos = NULL, ncol = 2, letras = TRUE, estilo = NULL) {
+                            fator_x = NULL, fator_traco = NULL, rotulos = NULL, ncol = 2, letras = TRUE, estilo = NULL,
+                            estilo_medias = NULL) {
   tipo <- match.arg(tipo)
   graficos <- lapply(variaveis, function(v) {
     if (identical(tipo, "medias")) {
-      grafico_medias(prep, opcoes, v, fator, rotulos, base_size = 11)
+      grafico_medias(prep, opcoes, v, fator, rotulos, base_size = 11, estilo = estilo_medias)
     } else {
       grafico_interacao(prep, v, fator_x, fator_traco, rotulos, base_size = 11, estilo = estilo, opcoes = opcoes)
     }
@@ -1093,7 +1112,7 @@ desenhar_tabela <- function(tabela, x, y, largura_max, titulo = NULL, nota = NUL
 
 gerar_relatorio_pdf <- function(resultado, arquivo, fator_linha = NULL, fator_coluna = NULL,
                                 titulo = "Relatório de análise de variância", responsavel = "", descricao = "",
-                                rotulos = NULL, painel = NULL, estilo = NULL) {
+                                rotulos = NULL, painel = NULL, estilo = NULL, estilo_medias = NULL) {
   prep <- resultado$prep
   opcoes <- resultado$opcoes
   titulo <- trimws(titulo %||% "")
@@ -1347,7 +1366,7 @@ gerar_relatorio_pdf <- function(resultado, arquivo, fator_linha = NULL, fator_co
   for (v in prep$respostas) {
     for (fator in prep$fatores) {
       graficos[[length(graficos) + 1]] <- list(
-        grafico = tentar(grafico_medias(prep, opcoes, v, fator, rotulos, base_size = 10)),
+        grafico = tentar(grafico_medias(prep, opcoes, v, fator, rotulos, base_size = 10, estilo = estilo_medias)),
         legenda = paste0(rotulo_grafico(prep, v, rotulos), " em função de ", rotulo_grafico(prep, fator, rotulos))
       )
     }

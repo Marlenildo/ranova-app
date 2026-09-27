@@ -28,7 +28,7 @@ Aplicativo [Shiny](https://shiny.posit.co/) que dá interface ao pacote R [`rano
   - *Discrepantes*: possíveis outliers e pontos influentes, com opção de substituir o valor pela média das demais repetições do tratamento e reanalisar (com registro no relatório e opção de desfazer);
   - *Médias* com letras (teste t para 2 níveis, Tukey para 3 ou mais);
   - *Interação*: desdobramento com letras maiúsculas e minúsculas;
-  - *Gráficos* de médias e de interação (linhas ou barras com letras), com paletas prontas (inclusive tons de cinza) ou cor escolhida para cada grupo.
+  - *Gráficos* de médias (uma cor ou uma cor por nível) e de interação (linhas ou barras com letras), com paletas prontas (inclusive tons de cinza) ou cores escolhidas.
 - **Painel de gráficos**: escolha as variáveis e a ordem, dê nomes aos eixos e legendas e monte um painel com quantos gráficos quiser, identificados por letras (A, B, C, D...).
 - **Exportação dos gráficos** em PNG ou TIFF (LZW), com resolução de 150, 300 ou 600 dpi e tamanho em centímetros.
 - **Relatório em PDF** (A4 retrato, no padrão do Croma, com cabeçalho branco): resumo do experimento, leitura rápida dos efeitos, pressupostos, ANOVA, médias, desdobramento da interação, gráficos numerados e o painel montado no app.

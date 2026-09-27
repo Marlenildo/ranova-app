@@ -495,6 +495,14 @@ server <- function(input, output, session) {
         selectInput("var_grafico", "Variável resposta", choices = respostas),
         selectInput("fator_grafico", "Fator", choices = fatores)
       ),
+      div(class = "caixa-estilo",
+        div(class = "grade-campos",
+          radioButtons("medias_modo", "Cores das barras", inline = TRUE,
+                       choices = c("Uma cor" = "unica", "Uma por nível" = "niveis"), selected = isolate(input$medias_modo) %||% "unica"),
+          selectInput("medias_paleta", "Paleta", choices = OPCOES_PALETAS, selected = isolate(input$medias_paleta) %||% "ranova")
+        ),
+        uiOutput("cores_medias")
+      ),
       plotOutput("grafico_medias", height = 360),
       controles_exportacao("medias", largura = 17, altura = 11),
       if (varios_fatores) {
@@ -643,7 +651,8 @@ server <- function(input, output, session) {
   grafico_medias_atual <- reactive({
     res <- resultado()
     req(res, input$var_grafico %in% res$prep$respostas, input$fator_grafico %in% res$prep$fatores)
-    grafico <- tentar(grafico_medias(res$prep, res$opcoes, input$var_grafico, input$fator_grafico, rotulos()))
+    grafico <- tentar(grafico_medias(res$prep, res$opcoes, input$var_grafico, input$fator_grafico, rotulos(),
+                                      estilo = estilo_medias()))
     validate(need(isTRUE(grafico$ok), paste("Não foi possível gerar o gráfico:", grafico$erro)))
     grafico$valor
   })
@@ -704,6 +713,44 @@ server <- function(input, output, session) {
     list(tipo = input$interacao_tipo %||% "linhas", paleta = input$interacao_paleta %||% "ranova", cores = cores)
   })
 
+  estilo_medias <- reactive({
+    res <- resultado()
+    cores <- list()
+    if (!is.null(res)) {
+      for (f in res$prep$fatores) {
+        cores[[f]] <- lapply(seq_len(nlevels(res$prep$dados[[f]])), function(i) input[[paste0("corm_", f, "_", i)]] %||% "")
+      }
+    }
+    list(modo = input$medias_modo %||% "unica", paleta = input$medias_paleta %||% "ranova",
+         cor_unica = input$corm_unica %||% "", cores = cores)
+  })
+
+  # Seletores de cor do gráfico de médias (ids próprios, separados dos da interação).
+  output$cores_medias <- renderUI({
+    res <- resultado()
+    req(res, identical(input$medias_paleta, "personalizada"))
+    if (!identical(input$medias_modo, "niveis")) {
+      return(div(class = "caixa-cores grade-cores",
+        colourpicker::colourInput("corm_unica", "Cor das barras", value = isolate(input$corm_unica) %||% CORES_APP$blue,
+                                  showColour = "both", palette = "square", closeOnClick = TRUE)))
+    }
+    fatores_cor <- unique(c(input$fator_grafico, if (identical(input$painel_tipo, "medias")) input$painel_fator))
+    fatores_cor <- fatores_cor[fatores_cor %in% res$prep$fatores]
+    req(length(fatores_cor) > 0)
+    tagList(lapply(fatores_cor, function(f) {
+      niveis <- levels(res$prep$dados[[f]])
+      padrao <- cores_niveis(niveis, "ranova")
+      div(class = "caixa-cores",
+        div(class = "titulo-legenda", icon("palette"), paste(" Cores de", rotulo(res$prep, f))),
+        div(class = "grade-cores", lapply(seq_along(niveis), function(i) {
+          id <- paste0("corm_", f, "_", i)
+          colourpicker::colourInput(id, niveis[i], value = isolate(input[[id]]) %||% unname(padrao[i]),
+                                    showColour = "both", palette = "square", closeOnClick = TRUE)
+        }))
+      )
+    }))
+  })
+
   output$cores_personalizadas <- renderUI({
     res <- resultado()
     req(res, identical(input$interacao_paleta, "personalizada"))
@@ -759,7 +806,7 @@ server <- function(input, output, session) {
           )
         )
       ),
-      div(class = "explicacao", "A ordem das variáveis no campo acima define a posição e a letra de cada gráfico. Para mudar a ordem, remova (×) e selecione de novo."),
+      div(class = "explicacao", "A ordem das variáveis no campo acima define a posição e a letra de cada gráfico. Para mudar a ordem, remova (×) e selecione de novo. Tipo e cores seguem o que foi escolhido na aba Gráficos dos resultados."),
       uiOutput("painel_nomes"),
       div(class = "area-painel", plotOutput("painel_grafico", height = "auto")),
       controles_exportacao("painel", largura = 17, altura = 14),
@@ -799,7 +846,8 @@ server <- function(input, output, session) {
     grafico <- tentar(painel_graficos(
       res$prep, res$opcoes, variaveis, input$painel_tipo,
       fator = input$painel_fator, fator_x = input$painel_fator_x, fator_traco = input$painel_fator_traco,
-      rotulos = rotulos(), ncol = ncol, letras = isTRUE(input$painel_letras), estilo = estilo_interacao()
+      rotulos = rotulos(), ncol = ncol, letras = isTRUE(input$painel_letras), estilo = estilo_interacao(),
+      estilo_medias = estilo_medias()
     ))
     validate(need(isTRUE(grafico$ok), paste("Não foi possível montar o painel:", grafico$erro)))
     list(grafico = grafico$valor, dimensoes = dimensoes_painel(length(variaveis), ncol))
@@ -832,7 +880,8 @@ server <- function(input, output, session) {
           descricao = input$descricao_relatorio,
           rotulos = rotulos(),
           painel = painel,
-          estilo = estilo_interacao()
+          estilo = estilo_interacao(),
+          estilo_medias = estilo_medias()
         )
       })
     }
