@@ -8,6 +8,19 @@ e o projeto usa [Versionamento Semântico](https://semver.org/lang/pt-BR/):
 
 ## [Não lançado]
 
+## [2.1.1] - 2026-09-28
+
+### Alterado
+
+- Nomenclatura dos delineamentos: um fator é **experimento simples**; dois ou
+  três fatores sorteados juntos, **esquema fatorial**; um fator nas parcelas e
+  outro nas subparcelas, **parcelas subdivididas** (sem "fatorial"). "Esquema
+  fatorial nas parcelas" ou "nas subparcelas" só aparece quando há dois fatores
+  combinados naquele nível.
+- Descrição do experimento no app, no PDF e no HTML no padrão de artigos, por
+  exemplo "DBC em parcelas subdivididas: esquema fatorial A × B nas parcelas e
+  C nas subparcelas".
+
 ## [2.1.0] - 2026-09-28
 
 ### Adicionado

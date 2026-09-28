@@ -341,29 +341,29 @@ sugerir_estrutura <- function(dados) {
 # ---------------------------------------------------------
 
 DELINEAMENTOS <- c(
-  "DIC (fatorial)" = "DIC",
-  "DBC (fatorial)" = "DBC",
-  "Parcelas subdivididas em DIC" = "PSDIC",
-  "Parcelas subdivididas em DBC" = "PSDBC",
-  "Parcelas subsubdivididas em DIC" = "PSSDIC",
-  "Parcelas subsubdivididas em DBC" = "PSSDBC"
+  "Inteiramente casualizado (DIC)" = "DIC",
+  "Blocos casualizados (DBC)" = "DBC",
+  "DIC em parcelas subdivididas" = "PSDIC",
+  "DBC em parcelas subdivididas" = "PSDBC",
+  "DIC em parcelas subsubdivididas" = "PSSDIC",
+  "DBC em parcelas subsubdivididas" = "PSSDBC"
 )
 
 NOMES_DELINEAMENTO <- c(
   DIC = "Inteiramente casualizado (DIC)",
   DBC = "Blocos casualizados (DBC)",
-  PSDIC = "Parcelas subdivididas em DIC",
-  PSDBC = "Parcelas subdivididas em DBC",
-  PSSDIC = "Parcelas subsubdivididas em DIC",
-  PSSDBC = "Parcelas subsubdivididas em DBC"
+  PSDIC = "DIC em parcelas subdivididas",
+  PSDBC = "DBC em parcelas subdivididas",
+  PSSDIC = "DIC em parcelas subsubdivididas",
+  PSSDBC = "DBC em parcelas subsubdivididas"
 )
 
 SIGLAS_DELINEAMENTO <- c(DIC = "DIC", DBC = "DBC", PSDIC = "PS-DIC", PSDBC = "PS-DBC", PSSDIC = "PSS-DIC", PSSDBC = "PSS-DBC")
 
 # Arranjos com três fatores em parcelas subdivididas (estrato de cada fator).
 ARRANJOS_PS <- c(
-  "Fatorial na parcela: 1º e 2º fatores na parcela, 3º na subparcela" = "parcela",
-  "Fatorial na subparcela: 1º fator na parcela, 2º e 3º na subparcela" = "subparcela"
+  "Esquema fatorial nas parcelas: 1º × 2º nas parcelas, 3º nas subparcelas" = "parcela",
+  "Esquema fatorial nas subparcelas: 1º nas parcelas, 2º × 3º nas subparcelas" = "subparcela"
 )
 
 NOMES_ESTRATOS <- c("parcela", "subparcela", "subsubparcela")
@@ -421,7 +421,7 @@ preparar_dados_analise <- function(dados, delineamento, bloco, fatores, resposta
   if (eh_subsubdividida(delineamento) && length(fatores) != 3) {
     erros <- c(erros, "Parcelas subsubdivididas usam três fatores: o 1º na parcela, o 2º na subparcela e o 3º na subsubparcela.")
   } else if (eh_parcela_subdividida(delineamento) && !length(fatores) %in% 2:3) {
-    erros <- c(erros, "Parcelas subdivididas usam dois fatores (1º na parcela, 2º na subparcela) ou três (fatorial na parcela ou na subparcela).")
+    erros <- c(erros, "Parcelas subdivididas usam dois fatores (1º nas parcelas, 2º nas subparcelas) ou três (com esquema fatorial nas parcelas ou nas subparcelas).")
   }
   if (length(respostas) == 0) {
     erros <- c(erros, "Selecione pelo menos uma variável resposta.")
@@ -547,17 +547,28 @@ nota_erros_desdobramento <- function(prep) {
   " Com parcelas, fator de estrato mais interno dentro de outro usa o erro do seu estrato; fator de estrato mais externo dentro de um mais interno usa o erro combinado com graus de liberdade de Satterthwaite."
 }
 
+# Descrição por extenso, no padrão usado em artigos: experimento simples (1 fator),
+# esquema fatorial (fatores sorteados juntos) ou parcelas subdivididas/subsubdivididas,
+# dizendo em que nível fica cada fator e onde há esquema fatorial.
 descricao_delineamento <- function(prep) {
-  texto <- NOMES_DELINEAMENTO[[prep$delineamento]]
-  if (eh_parcela_subdividida(prep$delineamento)) {
-    partes <- vapply(seq_along(NOMES_ESTRATOS), function(e) {
-      f <- prep$fatores[prep$estratos == e]
-      if (length(f) == 0) return(NA_character_)
-      paste0(paste(rotulo(prep, f), collapse = " × "), " na ", NOMES_ESTRATOS[e])
-    }, character(1))
-    texto <- paste0(texto, ": ", paste(stats::na.omit(partes), collapse = ", "))
+  base <- NOMES_DELINEAMENTO[[prep$delineamento]]
+  niveis <- vapply(prep$fatores, function(f) nlevels(prep$dados[[f]]), numeric(1))
+  nomes <- rotulo(prep, prep$fatores)
+  if (!eh_parcela_subdividida(prep$delineamento)) {
+    if (length(prep$fatores) == 1) return(paste0(base, ", experimento simples com um fator (", nomes, ")"))
+    return(paste0(base, " em esquema fatorial ", paste(niveis, collapse = " × "), " (", paste(nomes, collapse = " × "), ")"))
   }
-  texto
+  plural <- c("parcelas", "subparcelas", "subsubparcelas")
+  partes <- vapply(seq_along(plural), function(e) {
+    sel <- prep$estratos == e
+    if (!any(sel)) return(NA_character_)
+    fatores_nivel <- paste(nomes[sel], collapse = " × ")
+    if (sum(sel) > 1) fatores_nivel <- paste("esquema fatorial", fatores_nivel)
+    paste(fatores_nivel, "nas", plural[e])
+  }, character(1))
+  partes <- stats::na.omit(partes)
+  juntas <- if (length(partes) > 1) paste(paste(partes[-length(partes)], collapse = ", "), "e", partes[length(partes)]) else partes
+  paste0(base, ": ", juntas)
 }
 
 detalhe_delineamento <- function(prep) {
