@@ -2693,9 +2693,9 @@
       "description": {
         "Package": "ranova",
         "Title": "Analise De Variancia Para Experimentos Fatoriais e Em Parcelas\nSubdivididas",
-        "Version": "0.5.0",
+        "Version": "0.6.0",
         "Authors@R": "\n    person(given = \"Marlenildo\",\n           family = \"Ferreira Melo\",\n           role = c(\"aut\", \"cre\"),\n           email = \"marlenildo@example.com\")",
-        "Description": "Biblioteca para analise de variancia (ANOVA) em experimentos\n    com suporte a delineamento inteiramente casualizado (DIC) e delineamento\n    em blocos casualizados (DBC), incluindo modelos fatoriais, parcelas\n    subdivididas, diagnostico de pressupostos, testes de medias (Tukey, t,\n    Bonferroni, Duncan, SNK, Scott-Knott e Dunnett), tabelas de medias,\n    graficos e utilitarios para relatorios.",
+        "Description": "Biblioteca para analise de variancia (ANOVA) em experimentos\n    com suporte a delineamento inteiramente casualizado (DIC) e delineamento\n    em blocos casualizados (DBC), incluindo modelos fatoriais, parcelas\n    subdivididas (com fatorial na parcela ou na subparcela), parcelas\n    subsubdivididas, diagnostico de pressupostos, testes de medias (Tukey, t,\n    Bonferroni, Duncan, SNK, Scott-Knott e Dunnett), tabelas de medias,\n    graficos e utilitarios para relatorios.",
         "License": "MIT + file LICENSE",
         "Encoding": "UTF-8",
         "Roxygen": "list(markdown = TRUE)",
@@ -2709,16 +2709,16 @@
         "RemoteRepo": "ranova",
         "RemoteUsername": "Marlenildo",
         "RemoteRef": "HEAD",
-        "RemoteSha": "211ea9aaf47b5e39212a0578d6b970558bcd7a6b",
+        "RemoteSha": "aee46774b65a887aa5f1cdb8dd2ffd35b0f19b05",
         "GithubRepo": "ranova",
         "GithubUsername": "Marlenildo",
         "GithubRef": "HEAD",
-        "GithubSHA1": "211ea9aaf47b5e39212a0578d6b970558bcd7a6b",
+        "GithubSHA1": "aee46774b65a887aa5f1cdb8dd2ffd35b0f19b05",
         "NeedsCompilation": "no",
-        "Packaged": "2026-09-28 18:48:51 UTC; root",
+        "Packaged": "2026-09-28 19:38:37 UTC; root",
         "Author": "Marlenildo Ferreira Melo [aut, cre]",
         "Maintainer": "Marlenildo Ferreira Melo <marlenildo@example.com>",
-        "Built": "R 4.3.3; ; 2026-09-28 18:48:51 UTC; unix"
+        "Built": "R 4.3.3; ; 2026-09-28 19:38:38 UTC; unix"
       }
     },
     "rappdirs": {
@@ -3767,19 +3767,19 @@
       "checksum": "815f1dbae7167d84fbfce0de6b2a1cde"
     },
     "DESCRIPTION": {
-      "checksum": "cd89018f3ec521cd1e9f74e0c6643da8"
+      "checksum": "64400c4b2071b5aa4c487af2dddd95b9"
     },
     "global.R": {
-      "checksum": "b95d48f1932e67a3ed2fdc6d283939cd"
+      "checksum": "01303b403f27c8d03acd7a2c96f7dbfc"
     },
     "server.R": {
-      "checksum": "9eb9abc0fa3c7fa9a70e81bc3ae29d92"
+      "checksum": "bc193db62524af1f511720c0c63819a6"
     },
     "ui.R": {
-      "checksum": "d8675f21c5d5da9c2b6163fcad7210ea"
+      "checksum": "0332e3d5137c448793273ed05907035e"
     },
     "www/css/app.css": {
-      "checksum": "fe4c954616020a6c6c12a151d2b93118"
+      "checksum": "7e71386e94d085c9ae4e614831a6718c"
     },
     "www/img/favicon.png": {
       "checksum": "f4fb5d2fe18b011cf4ad3b3ed8eb9bbf"

@@ -35,7 +35,7 @@ ui <- fluidPage(
     div(class = "titulo-area",
       div(class = "titulo", "Ranova"),
       div(class = "descricao-app", "Análise de variância de experimentos fatoriais"),
-      div(class = "subtitulo", "Fatoriais e parcelas subdivididas em DIC ou DBC: ANOVA, testes de médias, desdobramentos, gráficos e relatórios em PDF e HTML.")
+      div(class = "subtitulo", "Fatoriais, parcelas subdivididas e subsubdivididas em DIC ou DBC: ANOVA, testes de médias, desdobramentos, gráficos e relatórios em PDF e HTML.")
     )
   ),
 
@@ -52,7 +52,7 @@ ui <- fluidPage(
           tags$ul(
             tags$li("Inteiramente casualizado (DIC) e blocos casualizados (DBC)"),
             tags$li("Fatorial com 1, 2 ou 3 fatores e quantos níveis quiser"),
-            tags$li("Parcelas subdivididas em DIC e em DBC")
+            tags$li("Parcelas subdivididas (com fatorial na parcela ou na subparcela) e subsubdivididas")
           ))),
       div(class = "recurso",
         div(class = "recurso-icone", icon("keyboard")),
@@ -98,7 +98,7 @@ ui <- fluidPage(
     div(class = "titulo-legenda guia-titulo", icon("book-open"), " Guia rápido"),
     div(class = "grade-coordenadas",
       div(class = "coord-item", tags$span("DIC · DBC", class = "coord-sigla"), tags$span("y ~ (bloco +) A * B * C", class = "coord-faixa"), tags$span("Fatorial completo", class = "coord-descricao")),
-      div(class = "coord-item", tags$span("PS", class = "coord-sigla"), tags$span("erro (a) · erro (b)", class = "coord-faixa"), tags$span("1º fator na parcela, 2º na subparcela", class = "coord-descricao")),
+      div(class = "coord-item", tags$span("PS", class = "coord-sigla"), tags$span("erros (a) · (b) · (c)", class = "coord-faixa"), tags$span("Parcela, subparcela e subsubparcela", class = "coord-descricao")),
       div(class = "coord-item", tags$span("CV", class = "coord-sigla"), tags$span("√QM erro / média × 100", class = "coord-faixa"), tags$span("Precisão experimental", class = "coord-descricao")),
       div(class = "coord-item", tags$span("a · b · c", class = "coord-sigla"), tags$span("mesma letra = não difere", class = "coord-faixa"), tags$span("Comparação de médias", class = "coord-descricao")),
       div(class = "coord-item", tags$span("aA", class = "coord-sigla"), tags$span("minúsculas · maiúsculas", class = "coord-faixa"), tags$span("Linhas · colunas no desdobramento", class = "coord-descricao"))
@@ -152,14 +152,19 @@ ui <- fluidPage(
       cartao(2, "Estrutura do experimento",
         selectInput("delineamento", "Delineamento", choices = DELINEAMENTOS, selected = "DIC", width = "100%"),
         conditionalPanel("input.delineamento != 'DIC'",
-          selectInput("coluna_bloco", "Coluna de blocos (DBC) ou de repetição (PS em DIC)", choices = character(), width = "100%")),
+          selectInput("coluna_bloco", "Coluna de blocos (DBC) ou de repetição (parcelas em DIC)", choices = character(), width = "100%")),
         selectizeInput("colunas_fatores", "Fatores (até 3)", choices = character(), multiple = TRUE, width = "100%",
           options = list(maxItems = MAX_FATORES, placeholder = "Selecione os fatores", plugins = list("remove_button"))),
         conditionalPanel("input.delineamento == 'PSDIC' || input.delineamento == 'PSDBC'",
           div(class = "explicacao dica-subdividida", icon("layer-group"),
-              HTML(" Parcelas subdivididas: escolha <b>dois fatores</b>. O <b>primeiro</b> fica na parcela e o <b>segundo</b>, na subparcela."),
-              conditionalPanel("input.delineamento == 'PSDIC'",
-                HTML("No DIC, a coluna de repetição identifica cada parcela dentro do fator da parcela.")))),
+              HTML(" Parcelas subdivididas: com <b>dois fatores</b>, o 1º fica na parcela e o 2º na subparcela. Com <b>três</b>, escolha o arranjo:"),
+              selectInput("arranjo_ps", NULL, choices = ARRANJOS_PS, selected = "parcela", width = "100%"))),
+        conditionalPanel("input.delineamento == 'PSSDIC' || input.delineamento == 'PSSDBC'",
+          div(class = "explicacao dica-subdividida", icon("layer-group"),
+              HTML(" Parcelas subsubdivididas: escolha <b>três fatores</b>, na ordem parcela, subparcela e subsubparcela."))),
+        conditionalPanel("input.delineamento == 'PSDIC' || input.delineamento == 'PSSDIC'",
+          div(class = "explicacao dica-subdividida", icon("hashtag"),
+              " No DIC com parcelas, a coluna de repetição identifica cada parcela (1, 2, 3...) dentro da combinação dos fatores da parcela.")),
         selectizeInput("colunas_respostas", "Variáveis resposta", choices = character(), multiple = TRUE, width = "100%",
           options = list(placeholder = "Selecione as variáveis", plugins = list("remove_button")))
       ),

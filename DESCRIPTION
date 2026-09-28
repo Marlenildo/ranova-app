@@ -1,10 +1,11 @@
 Package: ranovaapp
 Type: Shiny
 Title: Ranova - Analise de Variancia de Experimentos Fatoriais
-Version: 2.0.0
+Version: 2.1.0
 Authors@R: person("Marlenildo", role = c("aut", "cre", "cph"))
 Description: Aplicativo Shiny para analisar experimentos fatoriais com um,
-    dois ou tres fatores e em parcelas subdivididas, em delineamento
+    dois ou tres fatores, em parcelas subdivididas (inclusive com fatorial na
+    parcela ou na subparcela) e subsubdivididas, em delineamento
     inteiramente casualizado (DIC) ou em blocos casualizados (DBC), com testes
     de medias de Tukey, t, Bonferroni, Duncan, SNK, Scott-Knott e Dunnett. Os dados podem ser digitados, colados do Excel
     ou importados de arquivos xlsx, xls e csv. Gera ANOVA com CV, testes de
@@ -17,6 +18,6 @@ BugReports: https://github.com/Marlenildo/ranova-app/issues
 Encoding: UTF-8
 Language: pt-BR
 Depends: R (>= 4.1.0)
-Imports: shiny (>= 1.7.0), ranova (>= 0.5.0), rhandsontable, readxl, writexl,
+Imports: shiny (>= 1.7.0), ranova (>= 0.6.0), rhandsontable, readxl, writexl,
     ggplot2, ggpubr, knitr, htmltools, car, png, colourpicker
 Remotes: Marlenildo/ranova

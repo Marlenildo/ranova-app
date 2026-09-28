@@ -172,3 +172,4 @@ table.tabela tbody tr:hover { background:var(--blue-soft); }
 table.tabela td.destaque { background:#fff3cd; font-weight:800; }
 table.tabela tr.linha-resumo td { background:var(--blue-soft); font-weight:800; color:var(--navy); border-top:2px solid var(--navy); }
 .bloco-tabela .nota { color:var(--muted); font-size:12px; font-style:italic; margin:6px 0 0; }
+.dica-subdividida .shiny-input-container { margin:6px 0 0; }.dica-subdividida .form-group { margin-bottom:0; }

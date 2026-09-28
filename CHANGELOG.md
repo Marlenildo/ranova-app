@@ -8,6 +8,23 @@ e o projeto usa [Versionamento Semântico](https://semver.org/lang/pt-BR/):
 
 ## [Não lançado]
 
+## [2.1.0] - 2026-09-28
+
+### Adicionado
+
+- **Fatorial na parcela** (1º e 2º fatores na parcela, 3º na subparcela) e
+  **fatorial na subparcela** (1º na parcela, 2º e 3º na subparcela), escolhidos
+  no campo "arranjo" quando há três fatores em parcelas subdivididas.
+- **Parcelas subsubdivididas** em DIC e DBC (parcela, subparcela e
+  subsubparcela), com erros (a), (b) e (c) e um CV por estrato.
+- Cada efeito é testado contra o erro do seu estrato, e as comparações de
+  médias usam o erro do estrato ou o erro combinado de Satterthwaite, conforme
+  o desdobramento.
+
+### Alterado
+
+- Passa a exigir o pacote `ranova` 0.6.0.
+
 ## [2.0.0] - 2026-09-28
 
 ### Adicionado

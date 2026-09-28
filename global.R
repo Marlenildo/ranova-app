@@ -230,7 +230,7 @@ gerar_planilha_modelo <- function(fatores, n_repeticoes, delineamento, respostas
   )
   tratamentos <- tratamentos[, names(niveis), drop = FALSE]
 
-  coluna_rep <- if (delineamento %in% c("DBC", "PSDBC")) "Bloco" else "Repetição"
+  coluna_rep <- if (usa_bloco(delineamento)) "Bloco" else "Repetição"
   planilha <- do.call(rbind, lapply(seq_len(n_repeticoes), function(r) {
     cbind(stats::setNames(data.frame(as.character(r), stringsAsFactors = FALSE), coluna_rep), tratamentos)
   }))
@@ -344,20 +344,44 @@ DELINEAMENTOS <- c(
   "DIC (fatorial)" = "DIC",
   "DBC (fatorial)" = "DBC",
   "Parcelas subdivididas em DIC" = "PSDIC",
-  "Parcelas subdivididas em DBC" = "PSDBC"
+  "Parcelas subdivididas em DBC" = "PSDBC",
+  "Parcelas subsubdivididas em DIC" = "PSSDIC",
+  "Parcelas subsubdivididas em DBC" = "PSSDBC"
 )
 
 NOMES_DELINEAMENTO <- c(
   DIC = "Inteiramente casualizado (DIC)",
   DBC = "Blocos casualizados (DBC)",
   PSDIC = "Parcelas subdivididas em DIC",
-  PSDBC = "Parcelas subdivididas em DBC"
+  PSDBC = "Parcelas subdivididas em DBC",
+  PSSDIC = "Parcelas subsubdivididas em DIC",
+  PSSDBC = "Parcelas subsubdivididas em DBC"
 )
 
-SIGLAS_DELINEAMENTO <- c(DIC = "DIC", DBC = "DBC", PSDIC = "PS-DIC", PSDBC = "PS-DBC")
+SIGLAS_DELINEAMENTO <- c(DIC = "DIC", DBC = "DBC", PSDIC = "PS-DIC", PSDBC = "PS-DBC", PSSDIC = "PSS-DIC", PSSDBC = "PSS-DBC")
 
-eh_parcela_subdividida <- function(delineamento) delineamento %in% c("PSDIC", "PSDBC")
-usa_bloco <- function(delineamento) delineamento %in% c("DBC", "PSDBC")
+# Arranjos com três fatores em parcelas subdivididas (estrato de cada fator).
+ARRANJOS_PS <- c(
+  "Fatorial na parcela: 1º e 2º fatores na parcela, 3º na subparcela" = "parcela",
+  "Fatorial na subparcela: 1º fator na parcela, 2º e 3º na subparcela" = "subparcela"
+)
+
+NOMES_ESTRATOS <- c("parcela", "subparcela", "subsubparcela")
+
+# Estrato (1 = parcela, 2 = subparcela, 3 = subsubparcela) de cada fator.
+estratos_fatores <- function(delineamento, n_fatores, arranjo = "parcela") {
+  if (delineamento %in% c("PSSDIC", "PSSDBC")) return(c(1L, 2L, 3L))
+  if (delineamento %in% c("PSDIC", "PSDBC")) {
+    if (n_fatores == 2) return(c(1L, 2L))
+    return(if (identical(arranjo, "subparcela")) c(1L, 2L, 2L) else c(1L, 1L, 2L))
+  }
+  rep(1L, n_fatores)
+}
+
+eh_parcela_subdividida <- function(delineamento) delineamento %in% c("PSDIC", "PSDBC", "PSSDIC", "PSSDBC")
+eh_subsubdividida <- function(delineamento) delineamento %in% c("PSSDIC", "PSSDBC")
+usa_bloco <- function(delineamento) delineamento %in% c("DBC", "PSDBC", "PSSDBC")
+usa_repeticao <- function(delineamento) delineamento %in% c("PSDIC", "PSSDIC")
 
 # Testes de médias do pacote ranova, com rótulo para a tela.
 OPCOES_TESTES <- stats::setNames(names(ranova::TESTES_MEDIAS), unname(ranova::TESTES_MEDIAS))
@@ -382,10 +406,10 @@ nota_teste <- function(opcoes, desdobramento = FALSE) {
   paste0("Médias seguidas pela mesma letra na coluna não diferem entre si ", quais, ".")
 }
 
-preparar_dados_analise <- function(dados, delineamento, bloco, fatores, respostas) {
+preparar_dados_analise <- function(dados, delineamento, bloco, fatores, respostas, arranjo = "parcela") {
   erros <- character()
   if (!delineamento %in% DELINEAMENTOS) delineamento <- "DIC"
-  precisa_coluna <- delineamento %in% c("DBC", "PSDBC", "PSDIC")
+  precisa_coluna <- usa_bloco(delineamento) || usa_repeticao(delineamento)
   bloco <- if (precisa_coluna && !is.null(bloco) && nzchar(bloco)) bloco else NULL
 
   if (length(fatores) == 0) {
@@ -394,14 +418,16 @@ preparar_dados_analise <- function(dados, delineamento, bloco, fatores, resposta
   if (length(fatores) > MAX_FATORES) {
     erros <- c(erros, "Selecione no máximo três fatores.")
   }
-  if (eh_parcela_subdividida(delineamento) && length(fatores) != 2) {
-    erros <- c(erros, "Parcelas subdivididas usam exatamente dois fatores: o primeiro na parcela e o segundo na subparcela.")
+  if (eh_subsubdividida(delineamento) && length(fatores) != 3) {
+    erros <- c(erros, "Parcelas subsubdivididas usam três fatores: o 1º na parcela, o 2º na subparcela e o 3º na subsubparcela.")
+  } else if (eh_parcela_subdividida(delineamento) && !length(fatores) %in% 2:3) {
+    erros <- c(erros, "Parcelas subdivididas usam dois fatores (1º na parcela, 2º na subparcela) ou três (fatorial na parcela ou na subparcela).")
   }
   if (length(respostas) == 0) {
     erros <- c(erros, "Selecione pelo menos uma variável resposta.")
   }
   if (precisa_coluna && is.null(bloco)) {
-    erros <- c(erros, if (identical(delineamento, "PSDIC")) {
+    erros <- c(erros, if (usa_repeticao(delineamento)) {
       "Selecione a coluna de repetição (identifica cada parcela dentro do fator da parcela)."
     } else {
       "Selecione a coluna de blocos."
@@ -455,7 +481,7 @@ preparar_dados_analise <- function(dados, delineamento, bloco, fatores, resposta
     }
   }
   if (!is.null(bloco) && length(unique(trimws(as.character(base[[bloco]])))) < 2) {
-    erros <- c(erros, if (identical(delineamento, "PSDIC")) "A coluna de repetição precisa ter pelo menos duas repetições." else "A coluna de blocos precisa ter pelo menos dois blocos.")
+    erros <- c(erros, if (usa_repeticao(delineamento)) "A coluna de repetição precisa ter pelo menos duas repetições." else "A coluna de blocos precisa ter pelo menos dois blocos.")
   }
   if (length(erros) > 0) {
     return(list(ok = FALSE, erros = erros))
@@ -495,7 +521,8 @@ preparar_dados_analise <- function(dados, delineamento, bloco, fatores, resposta
     dados = analise,
     delineamento = delineamento,
     bloco = if (usa_bloco(delineamento)) seguro(bloco),
-    repeticao = if (identical(delineamento, "PSDIC")) seguro(bloco),
+    repeticao = if (usa_repeticao(delineamento)) seguro(bloco),
+    estratos = estratos_fatores(delineamento, length(fatores), arranjo),
     fatores = seguro(fatores),
     respostas = seguro(respostas),
     mapa = mapa,
@@ -505,10 +532,30 @@ preparar_dados_analise <- function(dados, delineamento, bloco, fatores, resposta
   )
 }
 
+# Explica contra qual erro cada efeito foi testado.
+nota_estratos <- function(prep) {
+  if (!eh_parcela_subdividida(prep$delineamento)) return("")
+  if (eh_subsubdividida(prep$delineamento)) {
+    return("Bloco e efeitos da parcela contra o erro (a); efeitos com o fator da subparcela contra o erro (b); efeitos com o fator da subsubparcela contra o erro (c).")
+  }
+  "Bloco e efeitos só com fatores da parcela contra o erro (a); efeitos que envolvem fator da subparcela contra o erro (b)."
+}
+
+# Nota do desdobramento sobre o erro usado quando há parcelas.
+nota_erros_desdobramento <- function(prep) {
+  if (!eh_parcela_subdividida(prep$delineamento)) return("")
+  " Com parcelas, fator de estrato mais interno dentro de outro usa o erro do seu estrato; fator de estrato mais externo dentro de um mais interno usa o erro combinado com graus de liberdade de Satterthwaite."
+}
+
 descricao_delineamento <- function(prep) {
   texto <- NOMES_DELINEAMENTO[[prep$delineamento]]
   if (eh_parcela_subdividida(prep$delineamento)) {
-    texto <- paste0(texto, ": ", rotulo(prep, prep$fatores[1]), " na parcela e ", rotulo(prep, prep$fatores[2]), " na subparcela")
+    partes <- vapply(seq_along(NOMES_ESTRATOS), function(e) {
+      f <- prep$fatores[prep$estratos == e]
+      if (length(f) == 0) return(NA_character_)
+      paste0(paste(rotulo(prep, f), collapse = " × "), " na ", NOMES_ESTRATOS[e])
+    }, character(1))
+    texto <- paste0(texto, ": ", paste(stats::na.omit(partes), collapse = ", "))
   }
   texto
 }
@@ -520,7 +567,9 @@ detalhe_delineamento <- function(prep) {
     DIC = "inteiramente casualizado",
     DBC = paste(n, "blocos"),
     PSDIC = paste("parcelas subdivididas,", n, "repetições"),
-    PSDBC = paste("parcelas subdivididas,", n, "blocos")
+    PSDBC = paste("parcelas subdivididas,", n, "blocos"),
+    PSSDIC = paste("subsubdivididas,", n, "repetições"),
+    PSSDBC = paste("subsubdivididas,", n, "blocos")
   )
 }
 
@@ -558,7 +607,7 @@ formatar_p <- function(p) {
 ajustar <- function(prep, resposta) {
   silenciar(ranova::ranova_ajuste(
     prep$dados, resposta, prep$fatores, prep$delineamento,
-    bloco = prep$bloco, repeticao = prep$repeticao
+    bloco = prep$bloco, repeticao = prep$repeticao, estratos = prep$estratos
   ))
 }
 
@@ -576,7 +625,7 @@ termos_significativos <- function(prep, alpha) {
     data.frame(variavel = v, termo = tab$FV, p = tab$p, stringsAsFactors = FALSE)
   })
   resultado <- do.call(rbind, linhas)
-  resultado <- resultado[!is.na(resultado$p) & !resultado$termo %in% c(prep$bloco, "Resíduo", "Erro (a)", "Erro (b)"), , drop = FALSE]
+  resultado <- resultado[!is.na(resultado$p) & !resultado$termo %in% c(prep$bloco, "Resíduo", "Erro (a)", "Erro (b)", "Erro (c)"), , drop = FALSE]
   resultado$interacao <- grepl(":", resultado$termo, fixed = TRUE)
   resultado$significativo <- resultado$p < alpha
   resultado
@@ -1004,7 +1053,7 @@ estrelas <- function(p) {
 anova_dados <- function(prep, formato = "qm_star", digitos = 3) {
   tabelas <- lapply(prep$respostas, function(v) ranova::ranova_anova(ajustar(prep, v)))
   ref <- tabelas[[1]]
-  fv <- vapply(ref$FV, function(t) if (t %in% c("Resíduo", "Erro (a)", "Erro (b)")) t else rotulo_termo(prep, t), character(1))
+  fv <- vapply(ref$FV, function(t) if (t %in% c("Resíduo", "Erro (a)", "Erro (b)", "Erro (c)")) t else rotulo_termo(prep, t), character(1))
 
   colunas <- list()
   destaque <- list()
@@ -1041,7 +1090,7 @@ anova_dados <- function(prep, formato = "qm_star", digitos = 3) {
     "Valores de quadrado médio. * p < 0,05; ** p < 0,01; *** p < 0,001."
   )
   if (eh_parcela_subdividida(prep$delineamento)) {
-    nota <- paste(nota, "Bloco e fator da parcela testados contra o erro (a); fator da subparcela e interação, contra o erro (b).")
+    nota <- paste(nota, nota_estratos(prep))
   }
   list(tabela = corpo, destaque = marca, nota = nota, linhas_resumo = length(nomes_cv))
 }

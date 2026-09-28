@@ -21,7 +21,7 @@ Aplicativo [Shiny](https://shiny.posit.co/) que dá interface ao pacote R [`rano
   - *Exemplo*: experimento fictício para conhecer o app.
 - **Planilha editável**: cole direto do Excel (Ctrl+V), insira ou remova linhas; vírgula decimal aceita.
 - **Estrutura sugerida automaticamente**: bloco, fatores e variáveis resposta são reconhecidos pelas colunas e podem ser ajustados.
-- **Delineamentos**: DIC ou DBC com 1, 2 ou 3 fatores (fatorial completo) e **parcelas subdivididas** em DIC ou DBC, com uma ou mais variáveis resposta.
+- **Delineamentos**: DIC ou DBC com 1, 2 ou 3 fatores (fatorial completo), **parcelas subdivididas** (inclusive com fatorial na parcela ou na subparcela) e **parcelas subsubdivididas**, em DIC ou DBC, com uma ou mais variáveis resposta.
 - **Testes de médias**: Tukey, t (LSD), Bonferroni, Duncan, SNK, Scott-Knott e Dunnett, com o erro correto em cada comparação.
 - **Resultados em abas**:
   - *ANOVA* em três formatos (QM com asteriscos, F e p em colunas, F (p)), com CV e leitura rápida dos efeitos e interações significativos;

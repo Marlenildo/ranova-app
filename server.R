@@ -113,7 +113,7 @@ server <- function(input, output, session) {
     dados <- gerar_planilha_modelo(fatores, n_rep, delineamento, respostas)
     carregar_planilha(dados, list(
       delineamento = delineamento,
-      bloco = if (delineamento %in% c("DBC", "PSDBC")) "Bloco" else if (identical(delineamento, "PSDIC")) "Repetição" else "",
+      bloco = if (usa_bloco(delineamento)) "Bloco" else if (usa_repeticao(delineamento)) "Repetição" else "",
       fatores = vapply(fatores, function(f) f$nome, character(1)),
       respostas = respostas
     ))
@@ -265,7 +265,8 @@ server <- function(input, output, session) {
       delineamento = input$delineamento,
       bloco = input$coluna_bloco,
       fatores = input$colunas_fatores,
-      respostas = input$colunas_respostas
+      respostas = input$colunas_respostas,
+      arranjo = input$arranjo_ps %||% "parcela"
     )
     if (!isTRUE(prep$ok)) {
       mensagens(list(tipo = "erro", itens = prep$erros))
@@ -478,7 +479,8 @@ server <- function(input, output, session) {
           }
         }),
         if (eh_parcela_subdividida(prep$delineamento)) tags$p(class = "explicacao nota-resultado",
-          "Parcelas subdivididas: o fator da parcela é comparado com o erro (a) e o da subparcela, com o erro (b).")
+          "Com parcelas, cada fator é comparado com o erro do seu estrato: parcela com o erro (a), subparcela com o erro (b)",
+          if (eh_subsubdividida(prep$delineamento)) " e subsubparcela com o erro (c)", ".")
       )
     )
 
@@ -685,7 +687,7 @@ server <- function(input, output, session) {
         class = "explicacao nota-resultado",
         nota_teste(res$opcoes, desdobramento = TRUE),
         if (length(prep$fatores) == 3) " Com três fatores, as médias são ajustadas sobre os níveis do fator não exibido.",
-        if (eh_parcela_subdividida(prep$delineamento)) " Parcelas subdivididas: a subparcela dentro de cada parcela usa o erro (b); a parcela dentro de cada subparcela usa o erro combinado com graus de liberdade de Satterthwaite."
+        nota_erros_desdobramento(prep)
       )
     )
   })
