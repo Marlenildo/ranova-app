@@ -8,6 +8,15 @@ e o projeto usa [Versionamento Semântico](https://semver.org/lang/pt-BR/):
 
 ## [Não lançado]
 
+## [2.3.0] - 2026-09-28
+
+### Adicionado
+
+- Opção **Estilo das tabelas** em "Opções da análise": **Moderno** (cores do
+  app) ou **Clássico (artigo)**, com texto preto e só filetes pretos acima e
+  abaixo do cabeçalho e no fim da tabela, sem cores nem destaques. Troca na
+  hora no app e vale também para os relatórios PDF e HTML.
+
 ## [2.2.2] - 2026-09-28
 
 ### Alterado

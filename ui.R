@@ -15,6 +15,13 @@ ui <- fluidPage(
     tags$title("Ranova · Análise de variância de experimentos"),
     # Botão "Copiar tabela": copia sem a formatação do app
     tags$script(HTML(JS_COPIAR_TABELA)),
+    # Estilo clássico das tabelas (texto e filetes pretos), trocado na hora pela opção "Estilo das tabelas"
+    tags$style(HTML(CSS_TABELAS_CLASSICAS)),
+    tags$script(HTML(
+      "$(document).on('change', 'input[name=estilo_tabela]', function() {
+         document.body.classList.toggle('tabelas-classicas', this.value === 'classico');
+       });"
+    )),
     # Aviso antes de sair da página quando já há dados na sessão (nada é gravado)
     tags$script(HTML(
       "(function() {
@@ -184,6 +191,8 @@ ui <- fluidPage(
         ),
         selectInput("formato_anova", "Formato da tabela de ANOVA", width = "100%",
           choices = c("Quadrado médio com asteriscos" = "qm_star", "F e p em colunas" = "f_p_colunas", "F (p) na mesma célula" = "f_p_inline")),
+        radioButtons("estilo_tabela", "Estilo das tabelas", inline = TRUE, width = "100%",
+          choices = c("Moderno" = "moderno", "Clássico (artigo)" = "classico")),
         selectInput("teste_medias", "Teste de médias", choices = OPCOES_TESTES, selected = "auto", width = "100%"),
         conditionalPanel("input.teste_medias == 'dunnett'",
           div(class = "explicacao dica-subdividida", icon("flag"), " Dunnett compara cada nível com o controle: o primeiro nível de cada fator na planilha (em ordem numérica, quando os níveis são números).")),

@@ -1180,11 +1180,11 @@ altura_tabela <- function(tabela, titulo = NULL, nota = NULL) {
 
 # Tabela no estilo do Croma: cabeçalho azul-marinho, linhas zebradas e destaque opcional por célula.
 desenhar_tabela <- function(tabela, x, y, largura_max, titulo = NULL, nota = NULL, destaque = NULL,
-                            ultima_linha_resumo = FALSE, tamanho = 8.6) {
+                            ultima_linha_resumo = FALSE, tamanho = 8.6, classico = FALSE) {
   n_resumo <- if (isTRUE(ultima_linha_resumo)) 1 else if (is.numeric(ultima_linha_resumo)) ultima_linha_resumo else 0
   if (!is.null(titulo)) {
     grid::grid.text(titulo, x = grid::unit(x, "in"), y = grid::unit(y - 0.12, "in"), just = c("left", "center"),
-                    gp = grid::gpar(fontsize = 10, fontface = "bold", col = CORES_APP$navy))
+                    gp = grid::gpar(fontsize = 10, fontface = "bold", col = if (classico) "#000000" else CORES_APP$navy))
     y <- y - 0.34
   }
   textos <- as.matrix(tabela)
@@ -1205,17 +1205,37 @@ desenhar_tabela <- function(tabela, x, y, largura_max, titulo = NULL, nota = NUL
   linhas_cab <- max(vapply(cabecalhos, function(n) length(strsplit(n, "\n", fixed = TRUE)[[1]]), numeric(1)))
   altura_cab <- 0.18 + 0.17 * linhas_cab
 
-  grid::grid.rect(x = grid::unit(x, "in"), y = grid::unit(y, "in"), width = grid::unit(largura_total, "in"),
-                  height = grid::unit(altura_cab, "in"), just = c("left", "top"),
-                  gp = grid::gpar(fill = CORES_APP$navy, col = NA))
+  filete <- function(y, lwd) {
+    grid::grid.lines(x = grid::unit(c(x, x + largura_total), "in"), y = grid::unit(rep(y, 2), "in"),
+                     gp = grid::gpar(col = "#000000", lwd = lwd))
+  }
+  if (classico) {
+    filete(y, 1.1)
+  } else {
+    grid::grid.rect(x = grid::unit(x, "in"), y = grid::unit(y, "in"), width = grid::unit(largura_total, "in"),
+                    height = grid::unit(altura_cab, "in"), just = c("left", "top"),
+                    gp = grid::gpar(fill = CORES_APP$navy, col = NA))
+  }
   for (j in seq_along(cabecalhos)) {
     grid::grid.text(cabecalhos[j], x = grid::unit(if (j == 1) xs[j] + 0.1 else xs[j] + larguras[j] / 2, "in"),
                     y = grid::unit(y - altura_cab / 2, "in"), just = c(if (j == 1) "left" else "center", "center"),
-                    gp = grid::gpar(fontsize = tamanho - 0.6, fontface = "bold", col = "#FFFFFF", lineheight = 0.95))
+                    gp = grid::gpar(fontsize = tamanho - 0.6, fontface = "bold", col = if (classico) "#000000" else "#FFFFFF", lineheight = 0.95))
   }
   y <- y - altura_cab
+  if (classico) filete(y, 0.6)
   for (i in seq_len(nrow(textos))) {
     resumo <- i > nrow(textos) - n_resumo
+    if (classico) {
+      if (resumo && i == nrow(textos) - n_resumo + 1 && i > 1) filete(y, 0.6)
+      for (j in seq_along(cabecalhos)) {
+        grid::grid.text(textos[i, j], x = grid::unit(if (j == 1) xs[j] + 0.1 else xs[j] + larguras[j] / 2, "in"),
+                        y = grid::unit(y - ALTURA_LINHA_TABELA / 2, "in"), just = c(if (j == 1) "left" else "center", "center"),
+                        gp = grid::gpar(fontsize = tamanho, col = "#000000"))
+      }
+      y <- y - ALTURA_LINHA_TABELA
+      if (i == nrow(textos)) filete(y, 1.1)
+      next
+    }
     grid::grid.rect(x = grid::unit(x, "in"), y = grid::unit(y, "in"), width = grid::unit(largura_total, "in"),
                     height = grid::unit(ALTURA_LINHA_TABELA, "in"), just = c("left", "top"),
                     gp = grid::gpar(fill = if (resumo) CORES_APP$soft else if (i %% 2 == 0) "#F7FAFC" else "#FFFFFF", col = NA))
@@ -1237,7 +1257,7 @@ desenhar_tabela <- function(tabela, x, y, largura_max, titulo = NULL, nota = NUL
   }
   if (!is.null(nota)) {
     grid::grid.text(nota, x = grid::unit(x, "in"), y = grid::unit(y - 0.15, "in"), just = c("left", "center"),
-                    gp = grid::gpar(fontsize = 7.2, fontface = "italic", col = CORES_APP$muted))
+                    gp = grid::gpar(fontsize = 7.2, fontface = "italic", col = if (classico) "#000000" else CORES_APP$muted))
   }
 }
 
@@ -1265,7 +1285,8 @@ textos_leitura <- function(resultado) {
 
 gerar_relatorio_pdf <- function(resultado, arquivo, fator_linha = NULL, fator_coluna = NULL,
                                 titulo = "Relatório de análise de variância", responsavel = "", descricao = "",
-                                rotulos = NULL, painel = NULL, estilo = NULL, estilo_medias = NULL) {
+                                rotulos = NULL, painel = NULL, estilo = NULL, estilo_medias = NULL,
+                                estilo_tabela = "moderno") {
   prep <- resultado$prep
   opcoes <- resultado$opcoes
   titulo <- trimws(titulo %||% "")
@@ -1273,6 +1294,7 @@ gerar_relatorio_pdf <- function(resultado, arquivo, fator_linha = NULL, fator_co
   responsavel <- trimws(responsavel %||% "")
   descricao <- trimws(descricao %||% "")
   data_hora <- format(Sys.time(), "%d/%m/%Y às %H:%M")
+  desenhar <- function(...) desenhar_tabela(..., classico = identical(estilo_tabela, "classico"))
 
   L <- 8.27; A <- 11.69
   margem <- 0.55
@@ -1395,7 +1417,7 @@ gerar_relatorio_pdf <- function(resultado, arquivo, fator_linha = NULL, fator_co
     names(diag) <- c("Variável", "p\nShapiro-Wilk", "Normalidade", "p\nLevene", "Homogeneidade")
     nota_diag <- "Shapiro-Wilk (normalidade dos resíduos) e Levene (homogeneidade). Em destaque, pressupostos não atendidos."
     bloco("Resumo", altura_tabela(diag, "Pressupostos da ANOVA", nota_diag) + 0.2, function(y) {
-      desenhar_tabela(diag, margem, y, largura_util, titulo = "Pressupostos da ANOVA", destaque = marca, nota = nota_diag)
+      desenhar(diag, margem, y, largura_util, titulo = "Pressupostos da ANOVA", destaque = marca, nota = nota_diag)
     })
   })
 
@@ -1409,7 +1431,7 @@ gerar_relatorio_pdf <- function(resultado, arquivo, fator_linha = NULL, fator_co
     )
     nota <- "Valores trocados pela média das demais repetições do mesmo tratamento antes da análise."
     bloco("Resumo", altura_tabela(tab, "Valores substituídos", nota) + 0.2, function(y) {
-      desenhar_tabela(tab, margem, y, largura_util, titulo = "Valores substituídos", nota = nota, tamanho = 8)
+      desenhar(tab, margem, y, largura_util, titulo = "Valores substituídos", nota = nota, tamanho = 8)
     })
   })
   disc <- resultado$discrepantes
@@ -1424,7 +1446,7 @@ gerar_relatorio_pdf <- function(resultado, arquivo, fator_linha = NULL, fator_co
     marca[, 7] <- grepl("outlier", disc$classificacao, ignore.case = TRUE)
     nota <- "Outlier: resíduo studentizado |t| > 3. Influente: Cook > 4/(n - p) com |t| > 2. Confira esses valores na planilha."
     bloco("Resumo", altura_tabela(tab, "Possíveis valores discrepantes", nota) + 0.2, function(y) {
-      desenhar_tabela(tab, margem, y, largura_util, titulo = "Possíveis valores discrepantes", nota = nota, destaque = marca, tamanho = 8)
+      desenhar(tab, margem, y, largura_util, titulo = "Possíveis valores discrepantes", nota = nota, destaque = marca, tamanho = 8)
     })
   })
 
@@ -1458,7 +1480,7 @@ gerar_relatorio_pdf <- function(resultado, arquivo, fator_linha = NULL, fator_co
     local({
       tab <- tab; marca <- marca; titulo_tab <- titulo_tab
       bloco("Análise de variância", altura_tabela(tab, titulo_tab, anova$nota) + 0.2, function(y) {
-        desenhar_tabela(tab, margem, y, largura_util, titulo = titulo_tab, nota = anova$nota, destaque = marca, ultima_linha_resumo = anova$linhas_resumo)
+        desenhar(tab, margem, y, largura_util, titulo = titulo_tab, nota = anova$nota, destaque = marca, ultima_linha_resumo = anova$linhas_resumo)
       }, nova_pagina = g == 1)
     })
   }
@@ -1475,7 +1497,7 @@ gerar_relatorio_pdf <- function(resultado, arquivo, fator_linha = NULL, fator_co
       local({
         tab <- tab; titulo_tab <- titulo_tab; nota <- nota
         bloco("Médias", altura_tabela(tab, titulo_tab, nota) + 0.2, function(y) {
-          desenhar_tabela(tab, margem, y, largura_util, titulo = titulo_tab, nota = nota)
+          desenhar(tab, margem, y, largura_util, titulo = titulo_tab, nota = nota)
         }, nova_pagina = primeira_media)
       })
       primeira_media <- FALSE
@@ -1494,7 +1516,7 @@ gerar_relatorio_pdf <- function(resultado, arquivo, fator_linha = NULL, fator_co
       local({
         tab <- inter$valor; titulo_tab <- titulo_tab; nota <- nota
         bloco("Desdobramento da interação", altura_tabela(tab, titulo_tab, nota) + 0.2, function(y) {
-          desenhar_tabela(tab, margem, y, largura_util, titulo = titulo_tab, nota = nota)
+          desenhar(tab, margem, y, largura_util, titulo = titulo_tab, nota = nota)
         }, nova_pagina = primeira)
       })
       primeira <- FALSE
@@ -1707,6 +1729,24 @@ JS_COPIAR_TABELA <- r"---(
 })();
 )---"
 
+# Estilo clássico de artigo: texto e linhas pretas, só três filetes horizontais
+# (acima do cabeçalho, abaixo dele e no fim da tabela), sem cores nem destaques.
+# Vale para o app e para o relatório HTML quando um elemento acima da tabela tem
+# a classe `tabelas-classicas`.
+CSS_TABELAS_CLASSICAS <- "
+.tabelas-classicas .rolagem, .tabelas-classicas .tabela-rolagem { border:0; border-radius:0; }
+.tabelas-classicas table.tabela, .tabelas-classicas table.ranova-diag-table { border:0 !important; border-top:1.5px solid #000 !important; border-bottom:1.5px solid #000 !important; background:#fff; color:#000; }
+.tabelas-classicas table.tabela th, .tabelas-classicas table.ranova-diag-table > thead > tr > th { background:#fff !important; color:#000 !important; font-weight:700; border:0 !important; border-bottom:1px solid #000 !important; }
+.tabelas-classicas table.tabela tbody tr, .tabelas-classicas table.ranova-diag-table > tbody > tr { background:#fff !important; }
+.tabelas-classicas table.tabela td, .tabelas-classicas table.ranova-diag-table > tbody > tr > td { color:#000 !important; background:transparent !important; border:0 !important; font-weight:400; }
+.tabelas-classicas table.tabela td.primeira { color:#000; font-weight:400; }
+.tabelas-classicas table.tabela td.destaque, .tabelas-classicas table.tabela tr.linha-resumo td { font-weight:400 !important; }
+.tabelas-classicas .bloco-tabela h3 { color:#000; }
+.tabelas-classicas .bloco-tabela .nota { color:#000; }
+.tabelas-classicas table.tabela tr:not(.linha-resumo) + tr.linha-resumo td { border-top:1px solid #000 !important; }
+.tabelas-classicas .ranova-pill { background:none !important; color:#000 !important; padding:0; border-radius:0; font-weight:400; font-size:inherit; }
+"
+
 tabela_relatorio_html <- function(tabela, titulo = NULL, nota = NULL, destaque = NULL, resumo_ultima = FALSE) {
   n_resumo <- if (isTRUE(resumo_ultima)) 1 else if (is.numeric(resumo_ultima)) resumo_ultima else 0
   textos <- as.matrix(tabela)
@@ -1731,7 +1771,8 @@ tabela_relatorio_html <- function(tabela, titulo = NULL, nota = NULL, destaque =
 
 gerar_relatorio_html <- function(resultado, arquivo, fator_linha = NULL, fator_coluna = NULL,
                                  titulo = "Relatório de análise de variância", responsavel = "", descricao = "",
-                                 rotulos = NULL, painel = NULL, estilo = NULL, estilo_medias = NULL) {
+                                 rotulos = NULL, painel = NULL, estilo = NULL, estilo_medias = NULL,
+                                estilo_tabela = "moderno") {
   prep <- resultado$prep
   opcoes <- resultado$opcoes
   titulo <- trimws(titulo %||% "")
@@ -1810,10 +1851,10 @@ gerar_relatorio_html <- function(resultado, arquivo, fator_linha = NULL, fator_c
     '<head>\n<meta charset="utf-8">\n<meta name="viewport" content="width=device-width, initial-scale=1">\n',
     '<title>', htmltools::htmlEscape(paste("Ranova ·", titulo)), '</title>\n',
     if (!is.null(logo_app)) paste0('<link rel="icon" href="', logo_app, '">\n') else "",
-    '<style>', CSS_RELATORIO_HTML, '</style>\n<script>', JS_COPIAR_TABELA, '</script>\n</head>'
+    '<style>', CSS_RELATORIO_HTML, CSS_TABELAS_CLASSICAS, '</style>\n<script>', JS_COPIAR_TABELA, '</script>\n</head>'
   )
   corpo <- tagList(
-    tags$body(
+    tags$body(class = if (identical(estilo_tabela, "classico")) "tabelas-classicas",
       tags$header(class = "cabecalho",
         div(class = "marca",
           if (!is.null(logo_app)) tags$img(src = logo_app, alt = "Logo do Ranova"),

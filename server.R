@@ -952,7 +952,8 @@ server <- function(input, output, session) {
       rotulos = rotulos(),
       painel = if (isTRUE(input$painel_no_pdf)) tryCatch(painel_atual(), error = function(e) NULL),
       estilo = estilo_interacao(),
-      estilo_medias = estilo_medias()
+      estilo_medias = estilo_medias(),
+      estilo_tabela = input$estilo_tabela %||% "moderno"
     )
   }
 

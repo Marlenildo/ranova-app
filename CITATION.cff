@@ -5,7 +5,7 @@ abstract: "Aplicativo Shiny para análise de variância de experimentos simples,
 type: software
 authors:
   - name: "Marlenildo"
-version: 2.2.2
+version: 2.3.0
 date-released: 2026-09-28
 license: MIT
 repository-code: "https://github.com/Marlenildo/ranova-app"
