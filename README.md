@@ -8,7 +8,7 @@
   <img alt="R >= 4.1" src="https://img.shields.io/badge/R-%E2%89%A5%204.1-173b5b">
 </p>
 
-**Análise de variância de experimentos fatoriais** — digite ou importe seus dados e gere ANOVA, médias com letras, desdobramentos, gráficos e relatório em PDF.
+**Análise de variância de experimentos** — digite ou importe seus dados e gere ANOVA, médias com letras, desdobramentos, gráficos e relatórios em PDF e HTML.
 
 Aplicativo [Shiny](https://shiny.posit.co/) que dá interface ao pacote R [`ranova`](https://github.com/Marlenildo/ranova).
 

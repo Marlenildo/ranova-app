@@ -2693,7 +2693,7 @@
       "description": {
         "Package": "ranova",
         "Title": "Analise De Variancia Para Experimentos Fatoriais e Em Parcelas\nSubdivididas",
-        "Version": "0.6.0",
+        "Version": "0.6.1",
         "Authors@R": "\n    person(given = \"Marlenildo\",\n           family = \"Ferreira Melo\",\n           role = c(\"aut\", \"cre\"),\n           email = \"marlenildo@example.com\")",
         "Description": "Biblioteca para analise de variancia (ANOVA) em experimentos\n    com suporte a delineamento inteiramente casualizado (DIC) e delineamento\n    em blocos casualizados (DBC), incluindo modelos fatoriais, parcelas\n    subdivididas (com fatorial na parcela ou na subparcela), parcelas\n    subsubdivididas, diagnostico de pressupostos, testes de medias (Tukey, t,\n    Bonferroni, Duncan, SNK, Scott-Knott e Dunnett), tabelas de medias,\n    graficos e utilitarios para relatorios.",
         "License": "MIT + file LICENSE",
@@ -2709,11 +2709,11 @@
         "RemoteRepo": "ranova",
         "RemoteUsername": "Marlenildo",
         "RemoteRef": "HEAD",
-        "RemoteSha": "aee46774b65a887aa5f1cdb8dd2ffd35b0f19b05",
+        "RemoteSha": "b14c76292f69df5cf877c79d1ca0bd36b0631904",
         "GithubRepo": "ranova",
         "GithubUsername": "Marlenildo",
         "GithubRef": "HEAD",
-        "GithubSHA1": "aee46774b65a887aa5f1cdb8dd2ffd35b0f19b05",
+        "GithubSHA1": "b14c76292f69df5cf877c79d1ca0bd36b0631904",
         "NeedsCompilation": "no",
         "Packaged": "2026-09-28 19:38:37 UTC; root",
         "Author": "Marlenildo Ferreira Melo [aut, cre]",
@@ -3764,28 +3764,28 @@
   },
   "files": {
     "app.R": {
-      "checksum": "815f1dbae7167d84fbfce0de6b2a1cde"
+      "checksum": "b66ef581ddaa5fb4f47636c6e39b613a"
     },
     "DESCRIPTION": {
-      "checksum": "19785a070ed6bac744de2f3c7e07537f"
+      "checksum": "cce27360e51836bcb05b0d64c038e7c4"
     },
     "global.R": {
-      "checksum": "718ac315998fb0b153482fc026a6b32c"
+      "checksum": "6baf434d490fec47e3bb5cf3dd5538f5"
     },
     "server.R": {
       "checksum": "9d87137588e5b6064f3c28269e394039"
     },
     "ui.R": {
-      "checksum": "9a6d0bcd8700e95860185fc146634943"
+      "checksum": "e7d7d786b8b1affbcfe93afe88a4a31d"
     },
     "www/css/app.css": {
       "checksum": "06724713c17167ea2839860fc9b2116c"
     },
     "www/img/favicon.png": {
-      "checksum": "10407cbe90e438c70b26a7a151354107"
+      "checksum": "71441602d990ee73fedbe49dd8d453df"
     },
     "www/img/logo_app.png": {
-      "checksum": "6333c6f622665047799d57a98360d4aa"
+      "checksum": "6f3fedef8dae441659917d9779b4a335"
     },
     "www/img/logo_marlenildo.png": {
       "checksum": "9f0a79c5d286ff05fa4512916dbfbce5"

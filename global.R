@@ -1588,7 +1588,7 @@ gerar_relatorio_pdf <- function(resultado, arquivo, fator_linha = NULL, fator_co
     }
     grid::grid.text("Ranova", x = grid::unit(margem + 0.62, "in"), y = grid::unit(A - 0.44, "in"), just = c("left", "center"),
                     gp = grid::gpar(fontsize = 15, fontface = "bold", col = CORES_APP$navy))
-    grid::grid.text("Análise de variância de experimentos fatoriais", x = grid::unit(margem + 0.62, "in"), y = grid::unit(A - 0.64, "in"),
+    grid::grid.text("Análise de variância de experimentos", x = grid::unit(margem + 0.62, "in"), y = grid::unit(A - 0.64, "in"),
                     just = c("left", "center"), gp = grid::gpar(fontsize = 8.2, fontface = "bold", col = CORES_APP$blue))
     grid::grid.text(toupper(pg$secao), x = grid::unit(L - margem, "in"), y = grid::unit(A - 0.44, "in"), just = c("right", "center"),
                     gp = grid::gpar(fontsize = 8.2, fontface = "bold", col = CORES_APP$navy))
@@ -1817,7 +1817,7 @@ gerar_relatorio_html <- function(resultado, arquivo, fator_linha = NULL, fator_c
       tags$header(class = "cabecalho",
         div(class = "marca",
           if (!is.null(logo_app)) tags$img(src = logo_app, alt = "Logo do Ranova"),
-          div(div(class = "nome", "Ranova"), div(class = "descricao", "Análise de variância de experimentos fatoriais"))
+          div(div(class = "nome", "Ranova"), div(class = "descricao", "Análise de variância de experimentos"))
         ),
         tags$nav(lapply(sumario, function(s) tags$a(href = paste0("#", s[1]), s[2])))
       ),

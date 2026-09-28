@@ -10,9 +10,9 @@ ui <- fluidPage(
   tags$head(
     tags$link(rel = "stylesheet", type = "text/css", href = "css/app.css"),
     tags$meta(name = "author", content = "Marlenildo"),
-    tags$meta(name = "description", content = "Ranova: análise de variância de experimentos fatoriais em DIC e DBC, com médias, desdobramento, gráficos e relatório em PDF."),
+    tags$meta(name = "description", content = "Ranova: análise de variância de experimentos simples, fatoriais e em parcelas subdivididas, em DIC e DBC, com médias, desdobramento, gráficos e relatórios em PDF e HTML."),
     tags$link(rel = "icon", type = "image/png", href = "img/favicon.png"),
-    tags$title("Ranova · Análise de variância de experimentos fatoriais"),
+    tags$title("Ranova · Análise de variância de experimentos"),
     # Botão "Copiar tabela": copia sem a formatação do app
     tags$script(HTML(JS_COPIAR_TABELA)),
     # Aviso antes de sair da página quando já há dados na sessão (nada é gravado)
@@ -36,7 +36,7 @@ ui <- fluidPage(
     tags$img(src = "img/logo_app.png", class = "logo-app", alt = "Logo do Ranova"),
     div(class = "titulo-area",
       div(class = "titulo", "Ranova"),
-      div(class = "descricao-app", "Análise de variância de experimentos fatoriais"),
+      div(class = "descricao-app", "Análise de variância de experimentos"),
       div(class = "subtitulo", "Experimentos simples, fatoriais, em parcelas subdivididas e subsubdivididas, em DIC ou DBC: ANOVA, testes de médias, desdobramentos, gráficos e relatórios em PDF e HTML.")
     )
   ),

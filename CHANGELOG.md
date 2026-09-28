@@ -8,6 +8,18 @@ e o projeto usa [Versionamento Semântico](https://semver.org/lang/pt-BR/):
 
 ## [Não lançado]
 
+## [2.2.2] - 2026-09-28
+
+### Alterado
+
+- Logo sem fundo: o quadro de bordas arredondadas e as barras têm a mesma
+  espessura dos traços da logo do Minhas Entregas.
+- Subtítulo "Análise de variância de experimentos" (sem "fatoriais") no app,
+  nos relatórios e nos metadados, já que o app também faz experimentos simples
+  e em parcelas subdivididas.
+- Usa o `ranova` 0.6.1 (documentação com a nomenclatura correta dos
+  delineamentos).
+
 ## [2.2.1] - 2026-09-28
 
 ### Alterado

@@ -1,7 +1,7 @@
 Package: ranovaapp
 Type: Shiny
-Title: Ranova - Analise de Variancia de Experimentos Fatoriais
-Version: 2.2.1
+Title: Ranova - Analise de Variancia de Experimentos
+Version: 2.2.2
 Authors@R: person("Marlenildo", role = c("aut", "cre", "cph"))
 Description: Aplicativo Shiny para analisar experimentos simples (um fator),
     em esquema fatorial (dois ou tres fatores), em parcelas subdivididas
@@ -19,6 +19,6 @@ BugReports: https://github.com/Marlenildo/ranova-app/issues
 Encoding: UTF-8
 Language: pt-BR
 Depends: R (>= 4.1.0)
-Imports: shiny (>= 1.7.0), ranova (>= 0.6.0), rhandsontable, readxl, writexl,
+Imports: shiny (>= 1.7.0), ranova (>= 0.6.1), rhandsontable, readxl, writexl,
     ggplot2, ggpubr, knitr, htmltools, car, png, colourpicker
 Remotes: Marlenildo/ranova

@@ -1,17 +1,18 @@
 cff-version: 1.2.0
 message: "Se você usar o Ranova em trabalhos acadêmicos, cite-o como abaixo."
-title: "Ranova: Análise de variância de experimentos fatoriais"
-abstract: "Aplicativo Shiny para análise de variância de experimentos fatoriais com um, dois ou três fatores em DIC ou DBC, com testes de pressupostos, médias com letras, desdobramento da interação, gráficos e relatório. Interface do pacote R ranova."
+title: "Ranova: Análise de variância de experimentos"
+abstract: "Aplicativo Shiny para análise de variância de experimentos simples, em esquema fatorial, em parcelas subdivididas e subsubdivididas, em DIC ou DBC, com testes de pressupostos, médias com letras, desdobramento da interação, gráficos e relatórios em PDF e HTML. Interface do pacote R ranova."
 type: software
 authors:
   - name: "Marlenildo"
-version: 2.2.1
+version: 2.2.2
 date-released: 2026-09-28
 license: MIT
 repository-code: "https://github.com/Marlenildo/ranova-app"
 keywords:
   - ANOVA
   - experimentos fatoriais
+  - parcelas subdivididas
   - DIC
   - DBC
   - Tukey
