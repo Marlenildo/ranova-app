@@ -230,7 +230,7 @@ gerar_planilha_modelo <- function(fatores, n_repeticoes, delineamento, respostas
   )
   tratamentos <- tratamentos[, names(niveis), drop = FALSE]
 
-  coluna_rep <- if (identical(delineamento, "DBC")) "Bloco" else "Repetição"
+  coluna_rep <- if (delineamento %in% c("DBC", "PSDBC")) "Bloco" else "Repetição"
   planilha <- do.call(rbind, lapply(seq_len(n_repeticoes), function(r) {
     cbind(stats::setNames(data.frame(as.character(r), stringsAsFactors = FALSE), coluna_rep), tratamentos)
   }))
@@ -268,6 +268,27 @@ dados_exemplo <- function() {
     3
   )
   dados <- dados[order(as.numeric(dados$Bloco)), ]
+  rownames(dados) <- NULL
+  dados_para_planilha(dados)
+}
+
+# Exemplo de parcelas subdivididas em DBC: irrigação na parcela, cultivar na subparcela.
+dados_exemplo_subdividida <- function() {
+  set.seed(2027)
+  dados <- expand.grid(
+    Bloco = as.character(1:4),
+    `Irrigação` = c("50% ETc", "75% ETc", "100% ETc"),
+    Cultivar = c("Gália", "Amarelo", "Pele de sapo"),
+    stringsAsFactors = FALSE,
+    KEEP.OUT.ATTRS = FALSE
+  )
+  irr <- match(dados$`Irrigação`, c("50% ETc", "75% ETc", "100% ETc"))
+  cult <- match(dados$Cultivar, c("Gália", "Amarelo", "Pele de sapo"))
+  parcela <- stats::rnorm(12, 0, 1.3)[as.integer(factor(paste(dados$Bloco, dados$`Irrigação`)))]
+  dados$`Produtividade (t/ha)` <- round(24 + 4.5 * irr - 0.6 * irr^2 + c(0, 3, -1.5)[cult] + (irr == 3) * (cult == 2) * 2.5 +
+    parcela + stats::rnorm(nrow(dados), 0, 0.9), 2)
+  dados$`Sólidos solúveis (°Brix)` <- round(11.8 - 0.35 * irr + c(0, 0.8, 1.2)[cult] + 0.4 * parcela + stats::rnorm(nrow(dados), 0, 0.35), 2)
+  dados <- dados[order(as.numeric(dados$Bloco), irr), ]
   rownames(dados) <- NULL
   dados_para_planilha(dados)
 }
@@ -319,9 +340,53 @@ sugerir_estrutura <- function(dados) {
 # Preparação e validação para análise
 # ---------------------------------------------------------
 
+DELINEAMENTOS <- c(
+  "DIC (fatorial)" = "DIC",
+  "DBC (fatorial)" = "DBC",
+  "Parcelas subdivididas em DIC" = "PSDIC",
+  "Parcelas subdivididas em DBC" = "PSDBC"
+)
+
+NOMES_DELINEAMENTO <- c(
+  DIC = "Inteiramente casualizado (DIC)",
+  DBC = "Blocos casualizados (DBC)",
+  PSDIC = "Parcelas subdivididas em DIC",
+  PSDBC = "Parcelas subdivididas em DBC"
+)
+
+SIGLAS_DELINEAMENTO <- c(DIC = "DIC", DBC = "DBC", PSDIC = "PS-DIC", PSDBC = "PS-DBC")
+
+eh_parcela_subdividida <- function(delineamento) delineamento %in% c("PSDIC", "PSDBC")
+usa_bloco <- function(delineamento) delineamento %in% c("DBC", "PSDBC")
+
+# Testes de médias do pacote ranova, com rótulo para a tela.
+OPCOES_TESTES <- stats::setNames(names(ranova::TESTES_MEDIAS), unname(ranova::TESTES_MEDIAS))
+
+nome_teste <- function(teste) {
+  unname(ranova::TESTES_MEDIAS[teste] %||% teste)
+}
+
+# Frase-padrão das notas das tabelas de médias.
+nota_teste <- function(opcoes, desdobramento = FALSE) {
+  teste <- opcoes$teste %||% "auto"
+  if (identical(teste, "dunnett")) {
+    if (desdobramento) {
+      return("Dunnett: * difere do primeiro nível do fator das linhas (controle) na mesma coluna; † difere do primeiro nível do fator das colunas na mesma linha.")
+    }
+    return("Dunnett: médias com * diferem do controle (primeiro nível do fator).")
+  }
+  quais <- if (identical(teste, "auto")) "pelo teste t (2 níveis) ou Tukey (3 ou mais níveis)" else paste("pelo teste de", nome_teste(teste))
+  if (desdobramento) {
+    return(paste0("Minúsculas comparam as linhas dentro de cada coluna; maiúsculas comparam as colunas dentro de cada linha (", sub("^pelo ", "", quais), ")."))
+  }
+  paste0("Médias seguidas pela mesma letra na coluna não diferem entre si ", quais, ".")
+}
+
 preparar_dados_analise <- function(dados, delineamento, bloco, fatores, respostas) {
   erros <- character()
-  bloco <- if (identical(delineamento, "DBC") && !is.null(bloco) && nzchar(bloco)) bloco else NULL
+  if (!delineamento %in% DELINEAMENTOS) delineamento <- "DIC"
+  precisa_coluna <- delineamento %in% c("DBC", "PSDBC", "PSDIC")
+  bloco <- if (precisa_coluna && !is.null(bloco) && nzchar(bloco)) bloco else NULL
 
   if (length(fatores) == 0) {
     erros <- c(erros, "Selecione pelo menos um fator.")
@@ -329,11 +394,18 @@ preparar_dados_analise <- function(dados, delineamento, bloco, fatores, resposta
   if (length(fatores) > MAX_FATORES) {
     erros <- c(erros, "Selecione no máximo três fatores.")
   }
+  if (eh_parcela_subdividida(delineamento) && length(fatores) != 2) {
+    erros <- c(erros, "Parcelas subdivididas usam exatamente dois fatores: o primeiro na parcela e o segundo na subparcela.")
+  }
   if (length(respostas) == 0) {
     erros <- c(erros, "Selecione pelo menos uma variável resposta.")
   }
-  if (identical(delineamento, "DBC") && is.null(bloco)) {
-    erros <- c(erros, "Selecione a coluna de blocos para o delineamento em blocos casualizados (DBC).")
+  if (precisa_coluna && is.null(bloco)) {
+    erros <- c(erros, if (identical(delineamento, "PSDIC")) {
+      "Selecione a coluna de repetição (identifica cada parcela dentro do fator da parcela)."
+    } else {
+      "Selecione a coluna de blocos."
+    })
   }
 
   usadas <- c(bloco, fatores, respostas)
@@ -383,7 +455,7 @@ preparar_dados_analise <- function(dados, delineamento, bloco, fatores, resposta
     }
   }
   if (!is.null(bloco) && length(unique(trimws(as.character(base[[bloco]])))) < 2) {
-    erros <- c(erros, "A coluna de blocos precisa ter pelo menos dois blocos.")
+    erros <- c(erros, if (identical(delineamento, "PSDIC")) "A coluna de repetição precisa ter pelo menos duas repetições." else "A coluna de blocos precisa ter pelo menos dois blocos.")
   }
   if (length(erros) > 0) {
     return(list(ok = FALSE, erros = erros))
@@ -395,6 +467,7 @@ preparar_dados_analise <- function(dados, delineamento, bloco, fatores, resposta
 
   analise <- base
   names(analise) <- nomes_seguros
+  rownames(analise) <- NULL
   for (coluna in seguro(classificadoras)) {
     valores <- trimws(as.character(analise[[coluna]]))
     niveis <- unique(valores)
@@ -413,30 +486,41 @@ preparar_dados_analise <- function(dados, delineamento, bloco, fatores, resposta
   if (nlevels(combinacoes) < todas) {
     return(list(ok = FALSE, erros = "Existem combinações de tratamentos sem observações. Confira se todos os níveis dos fatores foram combinados na planilha."))
   }
-  if (min(table(combinacoes)) < 2 && is.null(bloco)) {
+  if (min(table(combinacoes)) < 2 && !usa_bloco(delineamento)) {
     return(list(ok = FALSE, erros = "Cada tratamento precisa de pelo menos duas repetições para estimar o erro experimental."))
   }
-
-  dic_vars <- data.frame(
-    var = names(mapa),
-    sigla = unname(mapa),
-    label = unname(mapa),
-    description = unname(mapa),
-    stringsAsFactors = FALSE
-  )
 
   list(
     ok = TRUE,
     dados = analise,
     delineamento = delineamento,
-    bloco = seguro(bloco),
+    bloco = if (usa_bloco(delineamento)) seguro(bloco),
+    repeticao = if (identical(delineamento, "PSDIC")) seguro(bloco),
     fatores = seguro(fatores),
     respostas = seguro(respostas),
     mapa = mapa,
-    dic_vars = dic_vars,
     linhas_descartadas = linhas_descartadas,
     linha_planilha = which(linhas_validas),
     n_obs = nrow(analise)
+  )
+}
+
+descricao_delineamento <- function(prep) {
+  texto <- NOMES_DELINEAMENTO[[prep$delineamento]]
+  if (eh_parcela_subdividida(prep$delineamento)) {
+    texto <- paste0(texto, ": ", rotulo(prep, prep$fatores[1]), " na parcela e ", rotulo(prep, prep$fatores[2]), " na subparcela")
+  }
+  texto
+}
+
+detalhe_delineamento <- function(prep) {
+  estrutura <- coluna_estrutura(prep)
+  n <- if (!is.null(estrutura)) nlevels(prep$dados[[estrutura]])
+  switch(prep$delineamento,
+    DIC = "inteiramente casualizado",
+    DBC = paste(n, "blocos"),
+    PSDIC = paste("parcelas subdivididas,", n, "repetições"),
+    PSDBC = paste("parcelas subdivididas,", n, "blocos")
   )
 }
 
@@ -444,16 +528,15 @@ rotulo <- function(prep, x) {
   unname(ifelse(x %in% names(prep$mapa), prep$mapa[x], x))
 }
 
+# Coluna que identifica blocos ou parcelas (repetição no PS-DIC).
+coluna_estrutura <- function(prep) prep$bloco %||% prep$repeticao
+
 # ---------------------------------------------------------
 # Análise com o pacote ranova
 # ---------------------------------------------------------
 
 silenciar <- function(expr) {
   suppressWarnings(suppressMessages(expr))
-}
-
-tabela_html <- function(tabela) {
-  HTML(as.character(tabela))
 }
 
 tentar <- function(expr) {
@@ -471,23 +554,29 @@ formatar_p <- function(p) {
   )
 }
 
+# Ajuste do pacote para uma variável resposta (DIC, DBC ou parcelas subdivididas).
+ajustar <- function(prep, resposta) {
+  silenciar(ranova::ranova_ajuste(
+    prep$dados, resposta, prep$fatores, prep$delineamento,
+    bloco = prep$bloco, repeticao = prep$repeticao
+  ))
+}
+
+# Médias com letras pelo teste escolhido, com o erro correto para o delineamento.
+medias_teste <- function(prep, opcoes, resposta, fator, dentro = NULL, maiusculas = FALSE) {
+  silenciar(ranova::ranova_medias(
+    ajustar(prep, resposta), fator, dentro = dentro, teste = opcoes$teste %||% "auto",
+    alpha = opcoes$alpha, tipo_se = opcoes$tipo_se, maiusculas = maiusculas
+  ))
+}
+
 termos_significativos <- function(prep, alpha) {
   linhas <- lapply(prep$respostas, function(v) {
-    modelo <- silenciar(ajusta_modelo_fatorial(prep$dados, v, prep$bloco, prep$fatores))
-    tab <- summary(modelo)[[1]]
-    termos <- trimws(rownames(tab))
-    data.frame(
-      variavel = v,
-      termo = termos,
-      p = tab$`Pr(>F)`,
-      stringsAsFactors = FALSE
-    )
+    tab <- ranova::ranova_anova(ajustar(prep, v))
+    data.frame(variavel = v, termo = tab$FV, p = tab$p, stringsAsFactors = FALSE)
   })
   resultado <- do.call(rbind, linhas)
-  resultado <- resultado[!is.na(resultado$p) & resultado$termo != "Residuals", , drop = FALSE]
-  if (!is.null(prep$bloco)) {
-    resultado <- resultado[resultado$termo != prep$bloco, , drop = FALSE]
-  }
+  resultado <- resultado[!is.na(resultado$p) & !resultado$termo %in% c(prep$bloco, "Resíduo", "Erro (a)", "Erro (b)"), , drop = FALSE]
   resultado$interacao <- grepl(":", resultado$termo, fixed = TRUE)
   resultado$significativo <- resultado$p < alpha
   resultado
@@ -498,22 +587,23 @@ rotulo_termo <- function(prep, termo) {
   paste(rotulo(prep, partes), collapse = " × ")
 }
 
+# Shapiro-Wilk nos resíduos e Levene (mediana) entre os tratamentos.
 tabela_diagnostico <- function(prep, alpha) {
-  bruto <- silenciar(anova_diagnostico(
-    dados = prep$dados,
-    variaveis = prep$respostas,
-    bloco = prep$bloco,
-    fatores = prep$fatores,
-    alpha = alpha,
-    mostrar_graficos = FALSE
-  ))$dados_brutos
-
+  linhas <- lapply(prep$respostas, function(v) {
+    modelo <- ajustar(prep, v)$modelo
+    res <- stats::residuals(modelo)
+    p_n <- if (length(unique(round(res, 12))) > 2 && length(res) >= 3 && length(res) <= 5000) stats::shapiro.test(res)$p.value else NA
+    grupo <- interaction(stats::model.frame(modelo)[prep$fatores], drop = TRUE)
+    p_h <- tryCatch(car::leveneTest(res ~ grupo, center = stats::median)$`Pr(>F)`[1], error = function(e) NA)
+    data.frame(variavel = v, p_n = p_n, p_h = p_h)
+  })
+  bruto <- do.call(rbind, linhas)
   data.frame(
-    `Variável` = rotulo(prep, bruto$Variavel),
-    `p (Shapiro-Wilk)` = formatar_p(bruto$p_normalidade),
-    `Normalidade` = ifelse(is.na(bruto$p_normalidade), "Não avaliado", ifelse(bruto$p_normalidade < alpha, "Não atendida", "Atendida")),
-    `p (Levene)` = formatar_p(bruto$p_homogeneidade),
-    `Homogeneidade` = ifelse(is.na(bruto$p_homogeneidade), "Não avaliado", ifelse(bruto$p_homogeneidade < alpha, "Não atendida", "Atendida")),
+    `Variável` = rotulo(prep, bruto$variavel),
+    `p (Shapiro-Wilk)` = formatar_p(bruto$p_n),
+    `Normalidade` = ifelse(is.na(bruto$p_n), "Não avaliado", ifelse(bruto$p_n < alpha, "Não atendida", "Atendida")),
+    `p (Levene)` = formatar_p(bruto$p_h),
+    `Homogeneidade` = ifelse(is.na(bruto$p_h), "Não avaliado", ifelse(bruto$p_h < alpha, "Não atendida", "Atendida")),
     check.names = FALSE,
     stringsAsFactors = FALSE
   )
@@ -540,62 +630,15 @@ tabela_diagnostico_html <- function(tabela) {
 }
 
 executar_analise <- function(prep, opcoes) {
-  argumentos <- list(dados = prep$dados, bloco = prep$bloco, fatores = prep$fatores)
-
-  anova <- tentar(anova_fatorial_qm_tabela(
-    dados = prep$dados,
-    variaveis = prep$respostas,
-    bloco = prep$bloco,
-    fatores = prep$fatores,
-    dic_vars = prep$dic_vars,
-    formato = opcoes$formato,
-    digitos = opcoes$digitos_anova,
-    caption = "Resumo da análise de variância."
-  ))
-
-  significancia <- tentar(termos_significativos(prep, opcoes$alpha))
-  diagnostico <- tentar(tabela_diagnostico(prep, opcoes$alpha))
-
-  medias <- lapply(prep$fatores, function(fator) {
-    tentar(tabela_medias_fatorial(
-      dados = prep$dados,
-      variaveis = prep$respostas,
-      fator_interesse = fator,
-      bloco = prep$bloco,
-      fatores = prep$fatores,
-      dic_vars = prep$dic_vars,
-      digitos = opcoes$digitos,
-      tipo_se = opcoes$tipo_se,
-      caption = paste0("Médias ajustadas ± erro-padrão para ", rotulo(prep, fator), ".")
-    ))
-  })
-  names(medias) <- prep$fatores
-
   list(
     prep = prep,
     opcoes = opcoes,
-    anova = anova,
-    significancia = significancia,
-    diagnostico = diagnostico,
-    medias = medias,
+    anova = tentar(anova_dados(prep, opcoes$formato, opcoes$digitos_anova)),
+    significancia = tentar(termos_significativos(prep, opcoes$alpha)),
+    diagnostico = tentar(tabela_diagnostico(prep, opcoes$alpha)),
+    medias = stats::setNames(lapply(prep$fatores, function(f) tentar(medias_dados(prep, opcoes, f))), prep$fatores),
     gerado_em = Sys.time()
   )
-}
-
-tabela_interacao <- function(prep, opcoes, fator_linha, fator_coluna) {
-  tentar(tabela_interacao_fatorial_multivariaveis(
-    dados = prep$dados,
-    variaveis = prep$respostas,
-    fator_linha = fator_linha,
-    fator_coluna = fator_coluna,
-    bloco = prep$bloco,
-    fatores = prep$fatores,
-    dic_vars = prep$dic_vars,
-    digitos = opcoes$digitos,
-    alpha = opcoes$alpha,
-    tipo_se = opcoes$tipo_se,
-    caption = paste0("Desdobramento da interação ", rotulo(prep, fator_linha), " × ", rotulo(prep, fator_coluna), ".")
-  ))
 }
 
 # ---------------------------------------------------------
@@ -659,15 +702,7 @@ grafico_medias <- function(prep, opcoes, resposta, fator, rotulos = NULL, base_s
   estilo <- estilo %||% list()
   ap <- aparencia_grafico(estilo, base_size)
   base_size <- ap$tamanho
-  medias <- silenciar(medias_fatorial_cld(
-    dados = prep$dados,
-    resposta = resposta,
-    fator_interesse = fator,
-    bloco = prep$bloco,
-    fatores = prep$fatores,
-    alpha = opcoes$alpha,
-    tipo_se = opcoes$tipo_se
-  ))
+  medias <- medias_teste(prep, opcoes, resposta, fator)
   medias$nivel <- factor(medias$nivel, levels = levels(prep$dados[[fator]]))
   medias$grupo <- trimws(medias$grupo)
   topo <- max(medias$media + medias$se, na.rm = TRUE)
@@ -761,11 +796,12 @@ grafico_interacao <- function(prep, resposta, fator_x, fator_traco, rotulos = NU
     )
   }
 
-  modelo <- silenciar(ajusta_modelo_fatorial(prep$dados, resposta, prep$bloco, prep$fatores))
-  medias <- as.data.frame(silenciar(emmeans::emmeans(modelo, stats::as.formula(paste("~", fator_x, "*", fator_traco)))))
-  ggplot(medias, aes(x = .data[[fator_x]], y = .data$emmean, group = .data[[fator_traco]], color = .data[[fator_traco]])) +
+  medias <- medias_teste(prep, opcoes %||% list(alpha = 0.05, tipo_se = "modelo"), resposta, fator_x, dentro = fator_traco)
+  medias$x <- factor(medias$nivel, levels = levels(prep$dados[[fator_x]]))
+  medias$grupo <- factor(medias$dentro, levels = niveis_traco)
+  ggplot(medias, aes(x = .data$x, y = .data$media, group = .data$grupo, color = .data$grupo)) +
     geom_line(linewidth = 0.8) +
-    geom_errorbar(aes(ymin = .data$emmean - .data$SE, ymax = .data$emmean + .data$SE), width = 0.12) +
+    geom_errorbar(aes(ymin = .data$media - .data$se, ymax = .data$media + .data$se), width = 0.12) +
     geom_point(size = base_size * 0.22) +
     scale_color_manual(values = cores, labels = nomes_traco) +
     rotulos_eixos +
@@ -808,7 +844,7 @@ dimensoes_painel <- function(n, ncol) {
 grafico_residuos <- function(prep, resposta, base_size = 11, aparencia = NULL) {
   ap <- aparencia_grafico(aparencia, base_size)
   base_size <- ap$tamanho
-  modelo <- silenciar(ajusta_modelo_fatorial(prep$dados, resposta, prep$bloco, prep$fatores))
+  modelo <- ajustar(prep, resposta)$modelo
   usados <- as.integer(rownames(stats::model.frame(modelo)))
   d <- data.frame(
     linha = prep$linha_planilha[usados],
@@ -875,7 +911,7 @@ LIMITE_OUTLIER <- 3
 # ou com distância de Cook > 4/(n - p) e |t| > 2 (ponto influente).
 detectar_discrepantes <- function(prep) {
   linhas <- lapply(prep$respostas, function(v) {
-    modelo <- silenciar(ajusta_modelo_fatorial(prep$dados, v, prep$bloco, prep$fatores))
+    modelo <- ajustar(prep, v)$modelo
     usados <- as.integer(rownames(stats::model.frame(modelo)))
     t <- suppressWarnings(stats::rstudent(modelo))
     cook <- suppressWarnings(stats::cooks.distance(modelo))
@@ -887,7 +923,8 @@ detectar_discrepantes <- function(prep) {
     if (length(idx) == 0) return(NULL)
     i_dados <- usados[idx]
     tratamento <- apply(prep$dados[i_dados, prep$fatores, drop = FALSE], 1, function(x) paste(paste(rotulo(prep, prep$fatores), x), collapse = " · "))
-    if (!is.null(prep$bloco)) tratamento <- paste0(tratamento, " · ", rotulo(prep, prep$bloco), " ", prep$dados[i_dados, prep$bloco])
+    estrutura <- coluna_estrutura(prep)
+    if (!is.null(estrutura)) tratamento <- paste0(tratamento, " · ", rotulo(prep, estrutura), " ", prep$dados[i_dados, estrutura])
     data.frame(
       id = paste0(v, "|", prep$linha_planilha[i_dados]),
       variavel = v,
@@ -953,7 +990,7 @@ salvar_grafico <- function(arquivo, grafico, formato = "png", dpi = 300, largura
 # Tabelas em formato de dados (usadas no PDF)
 #
 # Seguem a mesma lógica das funções do pacote ranova
-# (modelo, emmeans, multcomp::cld com t para 2 níveis e Tukey para 3 ou mais).
+# (ranova_ajuste, ranova_anova e ranova_medias, com o teste de médias escolhido).
 # ---------------------------------------------------------
 
 num_pt <- function(x, digitos = 2) {
@@ -965,56 +1002,54 @@ estrelas <- function(p) {
 }
 
 anova_dados <- function(prep, formato = "qm_star", digitos = 3) {
-  tabelas <- lapply(prep$respostas, function(v) {
-    modelo <- silenciar(ajusta_modelo_fatorial(prep$dados, v, prep$bloco, prep$fatores))
-    tab <- summary(modelo)[[1]]
-    list(
-      fv = trimws(rownames(tab)), gl = tab$Df, qm = tab$`Mean Sq`, f = tab$`F value`, p = tab$`Pr(>F)`,
-      cv = sqrt(utils::tail(tab$`Mean Sq`, 1)) / mean(prep$dados[[v]], na.rm = TRUE) * 100
-    )
-  })
+  tabelas <- lapply(prep$respostas, function(v) ranova::ranova_anova(ajustar(prep, v)))
   ref <- tabelas[[1]]
-  fv <- ref$fv
-  fv[fv == "Residuals"] <- "Resíduo"
-  fv <- vapply(fv, function(t) if (t == "Resíduo") t else rotulo_termo(prep, t), character(1))
+  fv <- vapply(ref$FV, function(t) if (t %in% c("Resíduo", "Erro (a)", "Erro (b)")) t else rotulo_termo(prep, t), character(1))
 
   colunas <- list()
   destaque <- list()
   for (i in seq_along(prep$respostas)) {
     t <- tabelas[[i]]
     nome <- rotulo(prep, prep$respostas[i])
+    sig <- !is.na(t$p) & t$p < 0.05
     if (identical(formato, "f_p_colunas")) {
-      colunas[[paste0(nome, "\nF")]] <- num_pt(t$f, digitos)
+      colunas[[paste0(nome, "\nF")]] <- ifelse(is.na(t$F), "", num_pt(t$F, digitos))
       colunas[[paste0(nome, "\np")]] <- ifelse(is.na(t$p), "", ifelse(t$p < 0.0001, "< 0,0001", num_pt(t$p, 4)))
-      destaque[[paste0(nome, "\nF")]] <- !is.na(t$p) & t$p < 0.05
-      destaque[[paste0(nome, "\np")]] <- !is.na(t$p) & t$p < 0.05
+      destaque[[paste0(nome, "\nF")]] <- sig
+      destaque[[paste0(nome, "\np")]] <- sig
     } else if (identical(formato, "f_p_inline")) {
-      colunas[[nome]] <- ifelse(is.na(t$f), "", paste0(num_pt(t$f, digitos), " (", ifelse(t$p < 0.0001, "< 0,0001", num_pt(t$p, 4)), ")"))
-      destaque[[nome]] <- !is.na(t$p) & t$p < 0.05
+      colunas[[nome]] <- ifelse(is.na(t$F), num_pt(t$QM, digitos), paste0(num_pt(t$F, digitos), " (", ifelse(t$p < 0.0001, "< 0,0001", num_pt(t$p, 4)), ")"))
+      destaque[[nome]] <- sig
     } else {
-      colunas[[nome]] <- trimws(paste(num_pt(t$qm, digitos), estrelas(t$p)))
-      destaque[[nome]] <- !is.na(t$p) & t$p < 0.05
+      colunas[[nome]] <- trimws(paste(num_pt(t$QM, digitos), estrelas(t$p)))
+      destaque[[nome]] <- sig
     }
   }
-  corpo <- data.frame(FV = fv, GL = as.character(ref$gl), colunas, check.names = FALSE, stringsAsFactors = FALSE)
-  cv <- vapply(tabelas, function(t) num_pt(t$cv, 2), character(1))
-  linha_cv <- c("CV (%)", "", if (identical(formato, "f_p_colunas")) as.vector(rbind(cv, "")) else cv)
-  corpo <- rbind(corpo, stats::setNames(as.list(linha_cv), names(corpo)))
-  marca <- as.data.frame(lapply(names(corpo), function(n) c(destaque[[n]] %||% rep(FALSE, nrow(corpo) - 1), FALSE)),
+  corpo <- data.frame(FV = unname(fv), GL = as.character(ref$GL), colunas, check.names = FALSE, stringsAsFactors = FALSE)
+  n_corpo <- nrow(corpo)
+  nomes_cv <- names(attr(ref, "cv"))
+  for (k in seq_along(nomes_cv)) {
+    cv <- vapply(tabelas, function(t) num_pt(attr(t, "cv")[k], 2), character(1))
+    linha_cv <- c(nomes_cv[k], "", if (identical(formato, "f_p_colunas")) as.vector(rbind(cv, "")) else cv)
+    corpo <- rbind(corpo, stats::setNames(as.list(linha_cv), names(corpo)))
+  }
+  marca <- as.data.frame(lapply(names(corpo), function(n) c(destaque[[n]] %||% rep(FALSE, n_corpo), rep(FALSE, length(nomes_cv)))),
                          col.names = names(corpo), check.names = FALSE)
   nota <- switch(formato,
     f_p_colunas = "F = valor do teste F; p = valor-p. Em destaque, efeitos significativos a 5%.",
-    f_p_inline = "F (p) = valor do teste F com o valor-p entre parênteses. Em destaque, efeitos significativos a 5%.",
+    f_p_inline = "F (p) = valor do teste F com o valor-p entre parênteses (nas linhas de erro, o quadrado médio). Em destaque, efeitos significativos a 5%.",
     "Valores de quadrado médio. * p < 0,05; ** p < 0,01; *** p < 0,001."
   )
-  list(tabela = corpo, destaque = marca, nota = nota)
+  if (eh_parcela_subdividida(prep$delineamento)) {
+    nota <- paste(nota, "Bloco e fator da parcela testados contra o erro (a); fator da subparcela e interação, contra o erro (b).")
+  }
+  list(tabela = corpo, destaque = marca, nota = nota, linhas_resumo = length(nomes_cv))
 }
 
 medias_dados <- function(prep, opcoes, fator) {
   colunas <- lapply(prep$respostas, function(v) {
-    m <- silenciar(medias_fatorial_cld(prep$dados, v, fator, prep$bloco, prep$fatores, alpha = opcoes$alpha, tipo_se = opcoes$tipo_se))
-    m <- m[match(levels(prep$dados[[fator]]), as.character(m$nivel)), ]
-    paste0(num_pt(m$media, opcoes$digitos), " ± ", num_pt(m$se, opcoes$digitos), " ", trimws(m$grupo))
+    m <- medias_teste(prep, opcoes, v, fator)
+    trimws(paste0(num_pt(m$media, opcoes$digitos), " ± ", num_pt(m$se, opcoes$digitos), " ", m$grupo))
   })
   names(colunas) <- rotulo(prep, prep$respostas)
   data.frame(stats::setNames(list(levels(prep$dados[[fator]])), rotulo(prep, fator)), colunas,
@@ -1023,29 +1058,20 @@ medias_dados <- function(prep, opcoes, fator) {
 
 # Médias da combinação de dois fatores com letras: minúsculas comparam os níveis de
 # `fator_linha` dentro de cada nível de `fator_coluna`; maiúsculas, o contrário.
+# No teste de Dunnett, * marca diferença do controle nas linhas e †, nas colunas.
 interacao_letras <- function(prep, opcoes, resposta, fator_linha, fator_coluna) {
-  modelo <- silenciar(ajusta_modelo_fatorial(prep$dados, resposta, prep$bloco, prep$fatores))
-  ajuste <- function(fator) if (nlevels(prep$dados[[fator]]) == 2) "none" else "tukey"
-  letras <- function(formula, fator, conjunto) {
-    em <- silenciar(emmeans::emmeans(modelo, stats::as.formula(formula)))
-    cld <- as.data.frame(silenciar(multcomp::cld(em, alpha = opcoes$alpha, adjust = ajuste(fator), Letters = conjunto, reversed = TRUE)))
-    data.frame(linha = as.character(cld[[fator_linha]]), coluna = as.character(cld[[fator_coluna]]),
-               media = cld$emmean, se = cld$SE, letra = trimws(cld$.group), stringsAsFactors = FALSE)
-  }
-  col <- letras(paste("~", fator_coluna, "|", fator_linha), fator_coluna, LETTERS)
-  lin <- letras(paste("~", fator_linha, "|", fator_coluna), fator_linha, letters)
-  base <- merge(col, lin[, c("linha", "coluna", "letra")], by = c("linha", "coluna"), suffixes = c("_col", "_lin"))
-  if (identical(opcoes$tipo_se, "descritivo")) {
-    se <- stats::aggregate(prep$dados[[resposta]], list(linha = prep$dados[[fator_linha]], coluna = prep$dados[[fator_coluna]]),
-                           function(x) stats::sd(x, na.rm = TRUE) / sqrt(sum(!is.na(x))))
-    base$se <- se$x[match(paste(base$linha, base$coluna), paste(se$linha, se$coluna))]
-  }
+  lin <- medias_teste(prep, opcoes, resposta, fator_linha, dentro = fator_coluna)
+  col <- medias_teste(prep, opcoes, resposta, fator_coluna, dentro = fator_linha, maiusculas = TRUE)
+  if (identical(opcoes$teste, "dunnett")) col$grupo <- ifelse(col$grupo == "*", "†", "")
+  base <- data.frame(linha = lin$nivel, coluna = lin$dentro, media = lin$media, se = lin$se, letra_lin = lin$grupo,
+                     stringsAsFactors = FALSE)
+  base$letra_col <- col$grupo[match(paste(base$linha, base$coluna), paste(col$dentro, col$nivel))]
   base
 }
 
 interacao_dados <- function(prep, opcoes, resposta, fator_linha, fator_coluna) {
   base <- interacao_letras(prep, opcoes, resposta, fator_linha, fator_coluna)
-  base$texto <- paste0(num_pt(base$media, opcoes$digitos), " ± ", num_pt(base$se, opcoes$digitos), " ", base$letra_lin, base$letra_col)
+  base$texto <- trimws(paste0(num_pt(base$media, opcoes$digitos), " ± ", num_pt(base$se, opcoes$digitos), " ", base$letra_lin, base$letra_col))
   niveis_l <- levels(prep$dados[[fator_linha]])
   niveis_c <- levels(prep$dados[[fator_coluna]])
   saida <- data.frame(stats::setNames(list(niveis_l), rotulo(prep, fator_linha)), check.names = FALSE, stringsAsFactors = FALSE)
@@ -1095,6 +1121,7 @@ altura_tabela <- function(tabela, titulo = NULL, nota = NULL) {
 # Tabela no estilo do Croma: cabeçalho azul-marinho, linhas zebradas e destaque opcional por célula.
 desenhar_tabela <- function(tabela, x, y, largura_max, titulo = NULL, nota = NULL, destaque = NULL,
                             ultima_linha_resumo = FALSE, tamanho = 8.6) {
+  n_resumo <- if (isTRUE(ultima_linha_resumo)) 1 else if (is.numeric(ultima_linha_resumo)) ultima_linha_resumo else 0
   if (!is.null(titulo)) {
     grid::grid.text(titulo, x = grid::unit(x, "in"), y = grid::unit(y - 0.12, "in"), just = c("left", "center"),
                     gp = grid::gpar(fontsize = 10, fontface = "bold", col = CORES_APP$navy))
@@ -1128,7 +1155,7 @@ desenhar_tabela <- function(tabela, x, y, largura_max, titulo = NULL, nota = NUL
   }
   y <- y - altura_cab
   for (i in seq_len(nrow(textos))) {
-    resumo <- ultima_linha_resumo && i == nrow(textos)
+    resumo <- i > nrow(textos) - n_resumo
     grid::grid.rect(x = grid::unit(x, "in"), y = grid::unit(y, "in"), width = grid::unit(largura_total, "in"),
                     height = grid::unit(ALTURA_LINHA_TABELA, "in"), just = c("left", "top"),
                     gp = grid::gpar(fill = if (resumo) CORES_APP$soft else if (i %% 2 == 0) "#F7FAFC" else "#FFFFFF", col = NA))
@@ -1214,7 +1241,8 @@ gerar_relatorio_pdf <- function(resultado, arquivo, fator_linha = NULL, fator_co
   itens <- list(
     c("Fatores", paste(niveis_txt, collapse = "; ")),
     c("Variáveis resposta", paste(rotulo(prep, prep$respostas), collapse = ", ")),
-    c("Comparação de médias", "Teste t (2 níveis) ou Tukey (3 ou mais níveis)"),
+    c("Delineamento", descricao_delineamento(prep)),
+    c("Comparação de médias", nome_teste(opcoes$teste %||% "auto")),
     c("Erro-padrão das médias", if (identical(opcoes$tipo_se, "descritivo")) "Descritivo (dos dados)" else "Do modelo (médias ajustadas)")
   )
   if (nzchar(responsavel)) itens <- c(itens, list(c("Responsável", responsavel)))
@@ -1242,7 +1270,7 @@ gerar_relatorio_pdf <- function(resultado, arquivo, fator_linha = NULL, fator_co
     # Indicadores no padrão dos cartões do Croma
     tratamentos <- prod(vapply(prep$fatores, function(f) nlevels(prep$dados[[f]]), numeric(1)))
     kpis <- list(
-      c("Delineamento", prep$delineamento, if (identical(prep$delineamento, "DBC")) paste(nlevels(prep$dados[[prep$bloco]]), "blocos") else "inteiramente casualizado"),
+      c("Delineamento", SIGLAS_DELINEAMENTO[[prep$delineamento]], detalhe_delineamento(prep)),
       c("Tratamentos", as.character(tratamentos), paste(vapply(prep$fatores, function(f) nlevels(prep$dados[[f]]), numeric(1)), collapse = " × ")),
       c("Observações", as.character(prep$n_obs), paste(length(prep$respostas), if (length(prep$respostas) == 1) "variável resposta" else "variáveis resposta")),
       c("Significância", paste0(formatC(opcoes$alpha * 100, format = "f", digits = 0), "%"), "nível dos testes")
@@ -1370,7 +1398,7 @@ gerar_relatorio_pdf <- function(resultado, arquivo, fator_linha = NULL, fator_co
     local({
       tab <- tab; marca <- marca; titulo_tab <- titulo_tab
       bloco("Análise de variância", altura_tabela(tab, titulo_tab, anova$nota) + 0.2, function(y) {
-        desenhar_tabela(tab, margem, y, largura_util, titulo = titulo_tab, nota = anova$nota, destaque = marca, ultima_linha_resumo = TRUE)
+        desenhar_tabela(tab, margem, y, largura_util, titulo = titulo_tab, nota = anova$nota, destaque = marca, ultima_linha_resumo = anova$linhas_resumo)
       }, nova_pagina = g == 1)
     })
   }
@@ -1383,7 +1411,7 @@ gerar_relatorio_pdf <- function(resultado, arquivo, fator_linha = NULL, fator_co
     for (idx in dividir_colunas(length(prep$respostas), 3)) {
       tab <- medias$valor[, c(1, 1 + idx), drop = FALSE]
       titulo_tab <- paste0("Médias ± erro-padrão por ", rotulo(prep, fator))
-      nota <- "Médias seguidas pela mesma letra na coluna não diferem entre si pelo teste t (2 níveis) ou Tukey (3 ou mais níveis)."
+      nota <- nota_teste(opcoes)
       local({
         tab <- tab; titulo_tab <- titulo_tab; nota <- nota
         bloco("Médias", altura_tabela(tab, titulo_tab, nota) + 0.2, function(y) {
@@ -1401,7 +1429,7 @@ gerar_relatorio_pdf <- function(resultado, arquivo, fator_linha = NULL, fator_co
       inter <- tentar(interacao_dados(prep, opcoes, v, fator_linha, fator_coluna))
       if (!isTRUE(inter$ok)) next
       titulo_tab <- paste0(rotulo(prep, v), ": ", rotulo(prep, fator_linha), " × ", rotulo(prep, fator_coluna))
-      nota <- paste0("Minúsculas comparam as linhas dentro de cada coluna; maiúsculas comparam as colunas dentro de cada linha.",
+      nota <- paste0(nota_teste(opcoes, desdobramento = TRUE),
                      if (length(prep$fatores) == 3) " Médias ajustadas sobre os níveis do fator não exibido." else "")
       local({
         tab <- inter$valor; titulo_tab <- titulo_tab; nota <- nota
@@ -1543,6 +1571,7 @@ png_base64 <- function(grafico, largura, altura, dpi = 150) {
 # Tabela HTML no estilo das tabelas do app: cabeçalho azul-marinho, linhas zebradas,
 # células em destaque e última linha de resumo (CV) opcional.
 tabela_relatorio_html <- function(tabela, titulo = NULL, nota = NULL, destaque = NULL, resumo_ultima = FALSE) {
+  n_resumo <- if (isTRUE(resumo_ultima)) 1 else if (is.numeric(resumo_ultima)) resumo_ultima else 0
   textos <- as.matrix(tabela)
   textos[is.na(textos)] <- ""
   cabecalhos <- names(tabela)
@@ -1552,7 +1581,7 @@ tabela_relatorio_html <- function(tabela, titulo = NULL, nota = NULL, destaque =
       tags$table(class = "tabela",
         tags$thead(tags$tr(lapply(cabecalhos, function(cab) tags$th(HTML(gsub("\n", "<br>", htmltools::htmlEscape(cab), fixed = TRUE)))))),
         tags$tbody(lapply(seq_len(nrow(textos)), function(i) {
-          tags$tr(class = if (resumo_ultima && i == nrow(textos)) "linha-resumo",
+          tags$tr(class = if (i > nrow(textos) - n_resumo) "linha-resumo",
             lapply(seq_along(cabecalhos), function(j) {
               tags$td(class = paste(if (j == 1) "primeira", if (!is.null(destaque) && isTRUE(destaque[i, j])) "destaque"), textos[i, j])
             }))
@@ -1591,7 +1620,7 @@ gerar_relatorio_html <- function(resultado, arquivo, fator_linha = NULL, fator_c
   tratamentos <- prod(vapply(prep$fatores, function(f) nlevels(prep$dados[[f]]), numeric(1)))
   kpi <- function(rotulo_kpi, valor, detalhe) div(class = "kpi", div(class = "kpi-rotulo", rotulo_kpi), div(class = "kpi-valor", valor), div(class = "kpi-detalhe", detalhe))
   kpis <- div(class = "kpis",
-    kpi("Delineamento", prep$delineamento, if (identical(prep$delineamento, "DBC")) paste(nlevels(prep$dados[[prep$bloco]]), "blocos") else "inteiramente casualizado"),
+    kpi("Delineamento", SIGLAS_DELINEAMENTO[[prep$delineamento]], detalhe_delineamento(prep)),
     kpi("Tratamentos", tratamentos, paste(vapply(prep$fatores, function(f) nlevels(prep$dados[[f]]), numeric(1)), collapse = " × ")),
     kpi("Observações", prep$n_obs, paste(length(prep$respostas), if (length(prep$respostas) == 1) "variável resposta" else "variáveis resposta")),
     kpi("Significância", paste0(formatC(opcoes$alpha * 100, format = "f", digits = 0), "%"), "nível dos testes")
@@ -1600,7 +1629,8 @@ gerar_relatorio_html <- function(resultado, arquivo, fator_linha = NULL, fator_c
   itens <- list(
     c("Fatores", paste(niveis_txt, collapse = "; ")),
     c("Variáveis resposta", paste(rotulo(prep, prep$respostas), collapse = ", ")),
-    c("Comparação de médias", "Teste t (2 níveis) ou Tukey (3 ou mais níveis)"),
+    c("Delineamento", descricao_delineamento(prep)),
+    c("Comparação de médias", nome_teste(opcoes$teste %||% "auto")),
     c("Erro-padrão das médias", if (identical(opcoes$tipo_se, "descritivo")) "Descritivo (dos dados)" else "Do modelo (médias ajustadas)")
   )
   if (nzchar(responsavel)) itens <- c(itens, list(c("Responsável", responsavel)))
@@ -1682,7 +1712,7 @@ gerar_relatorio_html <- function(resultado, arquivo, fator_linha = NULL, fator_c
         ),
 
         secao("anova", 2, "Análise de variância", "azul",
-          tabela_relatorio_html(anova$tabela, NULL, anova$nota, as.matrix(anova$destaque), resumo_ultima = TRUE)
+          tabela_relatorio_html(anova$tabela, NULL, anova$nota, as.matrix(anova$destaque), resumo_ultima = anova$linhas_resumo)
         ),
 
         secao("pressupostos", 3, "Pressupostos da ANOVA", "verde",
@@ -1711,7 +1741,7 @@ gerar_relatorio_html <- function(resultado, arquivo, fator_linha = NULL, fator_c
           lapply(prep$fatores, function(fator) {
             m <- tentar(medias_dados(prep, opcoes, fator))
             if (isTRUE(m$ok)) tabela_relatorio_html(m$valor, paste("Médias ± erro-padrão por", rotulo(prep, fator)),
-              "Médias seguidas pela mesma letra na coluna não diferem entre si pelo teste t (2 níveis) ou Tukey (3 ou mais níveis).")
+              nota_teste(opcoes))
           })
         ),
 
@@ -1719,7 +1749,7 @@ gerar_relatorio_html <- function(resultado, arquivo, fator_linha = NULL, fator_c
           lapply(prep$respostas, function(v) {
             t <- tentar(interacao_dados(prep, opcoes, v, fator_linha, fator_coluna))
             if (isTRUE(t$ok)) tabela_relatorio_html(t$valor, paste0(rotulo(prep, v), ": ", rotulo(prep, fator_linha), " × ", rotulo(prep, fator_coluna)),
-              paste0("Minúsculas comparam as linhas dentro de cada coluna; maiúsculas comparam as colunas dentro de cada linha.",
+              paste0(nota_teste(opcoes, desdobramento = TRUE),
                      if (length(prep$fatores) == 3) " Médias ajustadas sobre os níveis do fator não exibido." else ""))
           })
         ),

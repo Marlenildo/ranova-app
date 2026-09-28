@@ -8,6 +8,29 @@ e o projeto usa [Versionamento Semântico](https://semver.org/lang/pt-BR/):
 
 ## [Não lançado]
 
+## [2.0.0] - 2026-09-28
+
+### Adicionado
+
+- **Parcelas subdivididas** em DIC e em DBC: o primeiro fator fica na parcela e
+  o segundo na subparcela; ANOVA com erro (a), erro (b), CV a e CV b.
+- **Testes de médias**: Tukey, t (LSD), Bonferroni, Duncan, SNK, Scott-Knott e
+  Dunnett, além do automático (t para 2 níveis, Tukey para 3 ou mais). O erro
+  de cada comparação segue o delineamento (na subdividida, erro combinado com
+  graus de liberdade de Satterthwaite para a parcela dentro da subparcela).
+- Seção **"O que o Ranova faz"** no topo, com delineamentos, entrada de dados,
+  análises, testes, gráficos e relatórios, seguida do guia rápido.
+- Exemplo de parcelas subdivididas em DBC (irrigação × cultivar).
+
+### Alterado
+
+- A análise passa a usar `ranova_ajuste()`, `ranova_anova()` e
+  `ranova_medias()` do pacote `ranova` 0.5.0.
+- Tabelas de ANOVA, médias e desdobramento no app com o mesmo estilo do
+  relatório (vírgula decimal, efeitos em destaque e linhas de CV).
+- PDF e HTML trazem o delineamento, o teste de médias usado e as notas
+  correspondentes.
+
 ## [1.9.0] - 2026-09-28
 
 ### Adicionado

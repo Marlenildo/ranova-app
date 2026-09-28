@@ -143,3 +143,32 @@ details.recolhivel[open] .recolhivel-seta { transform:rotate(-135deg); margin-to
 .btn-html { color:var(--navy); background:#fff; border:1px solid #9cb8cf; }.btn-html:hover, .btn-html:focus { color:#fff; background:var(--navy); border-color:var(--navy); }
 .btn-html[disabled] { opacity:.55; cursor:not-allowed; }
 @media(max-width:767px) { .botoes-relatorio > div { flex-direction:column; } }
+
+/* Apresentação: o que o Ranova faz */
+.painel-apresentacao .cabecalho-secao { margin-bottom:4px; }
+.intro-app { font-size:14px; margin:0 0 14px; }
+.grade-recursos { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-bottom:16px; }
+.recurso { display:flex; gap:12px; align-items:flex-start; border:1px solid var(--line); border-radius:10px; padding:12px 14px; background:#fbfdff; }
+.recurso-icone { display:inline-flex; align-items:center; justify-content:center; width:34px; height:34px; flex:none; border-radius:9px; background:var(--blue-soft); color:var(--blue); font-size:15px; }
+.recurso b { color:var(--navy); font-size:13.5px; }
+.recurso ul { margin:5px 0 0; padding-left:16px; color:#40566a; font-size:12.5px; line-height:1.45; }
+.recurso li + li { margin-top:2px; }
+.guia-titulo { margin-top:4px; }
+.dica-subdividida { background:#f8fbf9; border:1px solid #d5e8da; border-radius:8px; padding:8px 10px; margin:-4px 0 12px; font-size:12.5px; }
+@media(max-width:991px) { .grade-recursos { grid-template-columns:repeat(2,1fr); } }
+@media(max-width:767px) { .grade-recursos { grid-template-columns:1fr; } }
+
+/* Tabelas de resultados (mesmo estilo do relatório HTML) */
+.bloco-tabela + .bloco-tabela { margin-top:18px; }
+.bloco-tabela h3 { color:var(--navy); font-size:14px; font-weight:800; margin:4px 0 8px; }
+.rolagem { overflow-x:auto; border:1px solid var(--line); border-radius:8px; }
+table.tabela { border-collapse:collapse; width:100%; font-size:13.5px; font-variant-numeric:tabular-nums; margin:0; }
+table.tabela th { background:var(--navy); color:#fff; font-size:11.5px; font-weight:800; padding:10px 12px; text-align:center; white-space:nowrap; }
+table.tabela th:first-child { text-align:left; }
+table.tabela td { padding:8px 12px; text-align:center; border-top:1px solid #e7eef4; white-space:nowrap; color:#344b5e; }
+table.tabela td.primeira { text-align:left; font-weight:700; color:var(--navy); }
+table.tabela tbody tr:nth-child(even) { background:#f7fafc; }
+table.tabela tbody tr:hover { background:var(--blue-soft); }
+table.tabela td.destaque { background:#fff3cd; font-weight:800; }
+table.tabela tr.linha-resumo td { background:var(--blue-soft); font-weight:800; color:var(--navy); border-top:2px solid var(--navy); }
+.bloco-tabela .nota { color:var(--muted); font-size:12px; font-style:italic; margin:6px 0 0; }

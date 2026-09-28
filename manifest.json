@@ -2692,16 +2692,16 @@
       "Repository": null,
       "description": {
         "Package": "ranova",
-        "Title": "Analise De Variancia Para Experimentos Em DIC e DBC",
-        "Version": "0.4.5",
+        "Title": "Analise De Variancia Para Experimentos Fatoriais e Em Parcelas\nSubdivididas",
+        "Version": "0.5.0",
         "Authors@R": "\n    person(given = \"Marlenildo\",\n           family = \"Ferreira Melo\",\n           role = c(\"aut\", \"cre\"),\n           email = \"marlenildo@example.com\")",
-        "Description": "Biblioteca para analise de variancia (ANOVA) em experimentos\n    com suporte a delineamento inteiramente casualizado (DIC) e delineamento\n    em blocos casualizados (DBC), incluindo modelos fatoriais, diagnostico de\n    pressupostos, tabelas de medias, graficos e utilitarios para relatorios.",
+        "Description": "Biblioteca para analise de variancia (ANOVA) em experimentos\n    com suporte a delineamento inteiramente casualizado (DIC) e delineamento\n    em blocos casualizados (DBC), incluindo modelos fatoriais, parcelas\n    subdivididas, diagnostico de pressupostos, testes de medias (Tukey, t,\n    Bonferroni, Duncan, SNK, Scott-Knott e Dunnett), tabelas de medias,\n    graficos e utilitarios para relatorios.",
         "License": "MIT + file LICENSE",
         "Encoding": "UTF-8",
         "Roxygen": "list(markdown = TRUE)",
         "RoxygenNote": "7.3.3",
         "Depends": "R (>= 4.1)",
-        "Imports": "car, dplyr, DT, emmeans, ggplot2, ggpubr, htmltools,\nkableExtra, knitr, multcomp, multcompView, purrr, rlang,\nrstatix, tibble, tidyr",
+        "Imports": "car, dplyr, DT, emmeans, ggplot2, ggpubr, htmltools,\nkableExtra, knitr, multcomp, multcompView, mvtnorm, purrr,\nrlang, rstatix, tibble, tidyr",
         "Suggests": "testthat (>= 3.0.0)",
         "Config/testthat/edition": "3",
         "RemoteType": "github",
@@ -2709,16 +2709,16 @@
         "RemoteRepo": "ranova",
         "RemoteUsername": "Marlenildo",
         "RemoteRef": "HEAD",
-        "RemoteSha": "755c77c484396c260f959070d403f3816ece927d",
+        "RemoteSha": "211ea9aaf47b5e39212a0578d6b970558bcd7a6b",
         "GithubRepo": "ranova",
         "GithubUsername": "Marlenildo",
         "GithubRef": "HEAD",
-        "GithubSHA1": "755c77c484396c260f959070d403f3816ece927d",
+        "GithubSHA1": "211ea9aaf47b5e39212a0578d6b970558bcd7a6b",
         "NeedsCompilation": "no",
-        "Packaged": "2026-09-27 04:29:27 UTC; root",
+        "Packaged": "2026-09-28 18:48:51 UTC; root",
         "Author": "Marlenildo Ferreira Melo [aut, cre]",
         "Maintainer": "Marlenildo Ferreira Melo <marlenildo@example.com>",
-        "Built": "R 4.3.3; ; 2026-09-27 04:29:27 UTC; unix"
+        "Built": "R 4.3.3; ; 2026-09-28 18:48:51 UTC; unix"
       }
     },
     "rappdirs": {
@@ -3767,19 +3767,19 @@
       "checksum": "815f1dbae7167d84fbfce0de6b2a1cde"
     },
     "DESCRIPTION": {
-      "checksum": "a4d3ee4bade9d4ebf4d9183604c3663e"
+      "checksum": "cd89018f3ec521cd1e9f74e0c6643da8"
     },
     "global.R": {
-      "checksum": "3c15aa064383f568c4d9a8dd74f5b8a6"
+      "checksum": "b95d48f1932e67a3ed2fdc6d283939cd"
     },
     "server.R": {
-      "checksum": "8fdc81ca12e8ed1e5af0e968dea93eb3"
+      "checksum": "9eb9abc0fa3c7fa9a70e81bc3ae29d92"
     },
     "ui.R": {
-      "checksum": "5c176aff1a5f3993934ba49aabea08e1"
+      "checksum": "d8675f21c5d5da9c2b6163fcad7210ea"
     },
     "www/css/app.css": {
-      "checksum": "927a660b9c0703763051c935d6012951"
+      "checksum": "fe4c954616020a6c6c12a151d2b93118"
     },
     "www/img/favicon.png": {
       "checksum": "f4fb5d2fe18b011cf4ad3b3ed8eb9bbf"

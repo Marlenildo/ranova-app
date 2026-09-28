@@ -13,12 +13,6 @@ ui <- fluidPage(
     tags$meta(name = "description", content = "Ranova: análise de variância de experimentos fatoriais em DIC e DBC, com médias, desdobramento, gráficos e relatório em PDF."),
     tags$link(rel = "icon", type = "image/png", href = "img/favicon.png"),
     tags$title("Ranova · Análise de variância de experimentos fatoriais"),
-    htmltools::htmlDependency(
-      name = "lightable",
-      version = "0.0.1",
-      src = system.file("lightable-0.0.1", package = "kableExtra"),
-      stylesheet = "lightable.css"
-    ),
     # Aviso antes de sair da página quando já há dados na sessão (nada é gravado)
     tags$script(HTML(
       "(function() {
@@ -41,17 +35,72 @@ ui <- fluidPage(
     div(class = "titulo-area",
       div(class = "titulo", "Ranova"),
       div(class = "descricao-app", "Análise de variância de experimentos fatoriais"),
-      div(class = "subtitulo", "Digite ou importe seus dados e gere ANOVA, médias com letras, desdobramentos, gráficos e relatório em PDF.")
+      div(class = "subtitulo", "Fatoriais e parcelas subdivididas em DIC ou DBC: ANOVA, testes de médias, desdobramentos, gráficos e relatórios em PDF e HTML.")
     )
   ),
 
-  div(class = "painel painel-informacao",
-    div(class = "titulo-legenda", icon("info-circle"), " Guia rápido da análise"),
+  div(class = "painel painel-informacao painel-apresentacao",
+    div(class = "cabecalho-secao",
+      div(class = "titulo-legenda", icon("circle-info"), " O que o Ranova faz"),
+      div(class = "tag-secao tag-verde", "GRATUITO · SEM CADASTRO")
+    ),
+    p(class = "explicacao intro-app", "Análise de variância completa de experimentos agrícolas e biológicos, do lançamento dos dados ao relatório, em poucos cliques e sem programar."),
+    div(class = "grade-recursos",
+      div(class = "recurso",
+        div(class = "recurso-icone", icon("table-cells")),
+        div(tags$b("Delineamentos e arranjos"),
+          tags$ul(
+            tags$li("Inteiramente casualizado (DIC) e blocos casualizados (DBC)"),
+            tags$li("Fatorial com 1, 2 ou 3 fatores e quantos níveis quiser"),
+            tags$li("Parcelas subdivididas em DIC e em DBC")
+          ))),
+      div(class = "recurso",
+        div(class = "recurso-icone", icon("keyboard")),
+        div(tags$b("Seus dados, do seu jeito"),
+          tags$ul(
+            tags$li("Monte a planilha a partir dos fatores e digite"),
+            tags$li("Cole direto do Excel ou importe .xlsx, .xls e .csv"),
+            tags$li("Vírgula decimal aceita; colunas reconhecidas sozinhas")
+          ))),
+      div(class = "recurso",
+        div(class = "recurso-icone", icon("calculator")),
+        div(tags$b("ANOVA e pressupostos"),
+          tags$ul(
+            tags$li("Quadro da ANOVA com F, p e CV (erros a e b na subdividida)"),
+            tags$li("Shapiro-Wilk, Levene e quatro gráficos de resíduos"),
+            tags$li("Aponta outliers e pontos influentes e permite usar a média das repetições")
+          ))),
+      div(class = "recurso",
+        div(class = "recurso-icone", icon("arrow-down-wide-short")),
+        div(tags$b("Testes de médias"),
+          tags$ul(
+            tags$li("Tukey, t (LSD), Bonferroni, Duncan, SNK, Scott-Knott e Dunnett"),
+            tags$li("Médias com letras e desdobramento da interação (aA)"),
+            tags$li("Erro correto em cada comparação, inclusive na subdividida")
+          ))),
+      div(class = "recurso",
+        div(class = "recurso-icone", icon("chart-column")),
+        div(tags$b("Gráficos para publicar"),
+          tags$ul(
+            tags$li("Médias com letras e interação em linhas ou barras"),
+            tags$li("Cores, paletas (inclusive cinza), nomes, fonte, tamanho e negrito"),
+            tags$li("Painel A, B, C… e download em PNG ou TIFF, 150 a 600 dpi, no tamanho em cm")
+          ))),
+      div(class = "recurso",
+        div(class = "recurso-icone", icon("file-lines")),
+        div(tags$b("Relatórios prontos"),
+          tags$ul(
+            tags$li("PDF (A4) para imprimir e anexar"),
+            tags$li("HTML com o visual do app, para abrir no navegador ou enviar"),
+            tags$li("Planilha de dados em .xlsx; nada fica armazenado")
+          )))
+    ),
+    div(class = "titulo-legenda guia-titulo", icon("book-open"), " Guia rápido"),
     div(class = "grade-coordenadas",
-      div(class = "coord-item", tags$span("DIC", class = "coord-sigla"), tags$span("y ~ A * B * C", class = "coord-faixa"), tags$span("Inteiramente casualizado", class = "coord-descricao")),
-      div(class = "coord-item", tags$span("DBC", class = "coord-sigla"), tags$span("y ~ bloco + A * B * C", class = "coord-faixa"), tags$span("Blocos casualizados", class = "coord-descricao")),
-      div(class = "coord-item", tags$span("CV", class = "coord-sigla"), tags$span("√QMres / média × 100", class = "coord-faixa"), tags$span("Precisão experimental", class = "coord-descricao")),
-      div(class = "coord-item", tags$span("t · Tukey", class = "coord-sigla"), tags$span("2 níveis · 3 ou mais", class = "coord-faixa"), tags$span("Comparação de médias", class = "coord-descricao")),
+      div(class = "coord-item", tags$span("DIC · DBC", class = "coord-sigla"), tags$span("y ~ (bloco +) A * B * C", class = "coord-faixa"), tags$span("Fatorial completo", class = "coord-descricao")),
+      div(class = "coord-item", tags$span("PS", class = "coord-sigla"), tags$span("erro (a) · erro (b)", class = "coord-faixa"), tags$span("1º fator na parcela, 2º na subparcela", class = "coord-descricao")),
+      div(class = "coord-item", tags$span("CV", class = "coord-sigla"), tags$span("√QM erro / média × 100", class = "coord-faixa"), tags$span("Precisão experimental", class = "coord-descricao")),
+      div(class = "coord-item", tags$span("a · b · c", class = "coord-sigla"), tags$span("mesma letra = não difere", class = "coord-faixa"), tags$span("Comparação de médias", class = "coord-descricao")),
       div(class = "coord-item", tags$span("aA", class = "coord-sigla"), tags$span("minúsculas · maiúsculas", class = "coord-faixa"), tags$span("Linhas · colunas no desdobramento", class = "coord-descricao"))
     )
   ),
@@ -90,18 +139,27 @@ ui <- fluidPage(
             actionButton("importar_colados", "Usar dados colados", icon = icon("paste"), class = "btn-adicionar btn-bloco")
           ),
           tabPanel("Exemplo", value = "exemplo",
-            div(class = "explicacao espaco-topo", "Experimento fictício de melão em blocos casualizados (DBC): 4 blocos, fatorial 4 doses × 2 cultivares e três variáveis resposta."),
+            div(class = "explicacao espaco-topo", "Dados fictícios de melão para conhecer o app."),
+            radioButtons("exemplo_tipo", NULL, choices = c(
+              "Fatorial em DBC: 4 doses × 2 cultivares, 4 blocos" = "DBC",
+              "Parcelas subdivididas em DBC: irrigação (parcela) × cultivar (subparcela), 4 blocos" = "PSDBC"
+            ), selected = "DBC"),
             actionButton("carregar_exemplo", "Carregar exemplo", icon = icon("flask"), class = "btn-adicionar btn-bloco")
           )
         )
       ),
 
       cartao(2, "Estrutura do experimento",
-        radioButtons("delineamento", "Delineamento", inline = TRUE, choices = c("DIC" = "DIC", "DBC" = "DBC"), selected = "DIC"),
-        conditionalPanel("input.delineamento == 'DBC'",
-          selectInput("coluna_bloco", "Coluna de blocos", choices = character(), width = "100%")),
+        selectInput("delineamento", "Delineamento", choices = DELINEAMENTOS, selected = "DIC", width = "100%"),
+        conditionalPanel("input.delineamento != 'DIC'",
+          selectInput("coluna_bloco", "Coluna de blocos (DBC) ou de repetição (PS em DIC)", choices = character(), width = "100%")),
         selectizeInput("colunas_fatores", "Fatores (até 3)", choices = character(), multiple = TRUE, width = "100%",
           options = list(maxItems = MAX_FATORES, placeholder = "Selecione os fatores", plugins = list("remove_button"))),
+        conditionalPanel("input.delineamento == 'PSDIC' || input.delineamento == 'PSDBC'",
+          div(class = "explicacao dica-subdividida", icon("layer-group"),
+              HTML(" Parcelas subdivididas: escolha <b>dois fatores</b>. O <b>primeiro</b> fica na parcela e o <b>segundo</b>, na subparcela."),
+              conditionalPanel("input.delineamento == 'PSDIC'",
+                HTML("No DIC, a coluna de repetição identifica cada parcela dentro do fator da parcela.")))),
         selectizeInput("colunas_respostas", "Variáveis resposta", choices = character(), multiple = TRUE, width = "100%",
           options = list(placeholder = "Selecione as variáveis", plugins = list("remove_button")))
       ),
@@ -113,6 +171,9 @@ ui <- fluidPage(
         ),
         selectInput("formato_anova", "Formato da tabela de ANOVA", width = "100%",
           choices = c("Quadrado médio com asteriscos" = "qm_star", "F e p em colunas" = "f_p_colunas", "F (p) na mesma célula" = "f_p_inline")),
+        selectInput("teste_medias", "Teste de médias", choices = OPCOES_TESTES, selected = "auto", width = "100%"),
+        conditionalPanel("input.teste_medias == 'dunnett'",
+          div(class = "explicacao dica-subdividida", icon("flag"), " Dunnett compara cada nível com o controle: o primeiro nível de cada fator na planilha (em ordem numérica, quando os níveis são números).")),
         selectInput("tipo_se", "Erro-padrão das médias", width = "100%",
           choices = c("Do modelo (ajustado)" = "modelo", "Descritivo (dos dados)" = "descritivo")),
         actionButton("analisar", "Analisar", icon = icon("play"), class = "btn-analisar btn-bloco"),

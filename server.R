@@ -15,7 +15,7 @@ server <- function(input, output, session) {
 
   aplicar_estrutura <- function(dados, estrutura) {
     colunas <- names(dados)
-    updateRadioButtons(session, "delineamento", selected = estrutura$delineamento)
+    updateSelectInput(session, "delineamento", selected = estrutura$delineamento)
     updateSelectInput(session, "coluna_bloco", choices = colunas, selected = estrutura$bloco)
     updateSelectizeInput(session, "colunas_fatores", choices = colunas, selected = estrutura$fatores)
     updateSelectizeInput(session, "colunas_respostas", choices = colunas, selected = estrutura$respostas)
@@ -113,7 +113,7 @@ server <- function(input, output, session) {
     dados <- gerar_planilha_modelo(fatores, n_rep, delineamento, respostas)
     carregar_planilha(dados, list(
       delineamento = delineamento,
-      bloco = if (identical(delineamento, "DBC")) "Bloco" else "",
+      bloco = if (delineamento %in% c("DBC", "PSDBC")) "Bloco" else if (identical(delineamento, "PSDIC")) "Repetição" else "",
       fatores = vapply(fatores, function(f) f$nome, character(1)),
       respostas = respostas
     ))
@@ -202,12 +202,13 @@ server <- function(input, output, session) {
   # ---------------------------------------------------------
 
   observeEvent(input$carregar_exemplo, {
-    dados <- dados_exemplo()
+    subdividida <- identical(input$exemplo_tipo, "PSDBC")
+    dados <- if (subdividida) dados_exemplo_subdividida() else dados_exemplo()
     carregar_planilha(dados, list(
-      delineamento = "DBC",
+      delineamento = if (subdividida) "PSDBC" else "DBC",
       bloco = "Bloco",
-      fatores = c("Dose", "Cultivar"),
-      respostas = names(dados)[4:6]
+      fatores = if (subdividida) c("Irrigação", "Cultivar") else c("Dose", "Cultivar"),
+      respostas = names(dados)[4:length(dados)]
     ))
     showNotification("Exemplo carregado. Clique em Analisar para ver os resultados.", type = "message", duration = 5)
   })
@@ -276,7 +277,8 @@ server <- function(input, output, session) {
       digitos = as.integer(input$digitos),
       digitos_anova = max(2L, as.integer(input$digitos) + 1L),
       formato = input$formato_anova,
-      tipo_se = input$tipo_se
+      tipo_se = input$tipo_se,
+      teste = input$teste_medias %||% "auto"
     )
 
     analise <- withProgress(message = "Analisando o experimento...", value = 0.3, {
@@ -441,7 +443,12 @@ server <- function(input, output, session) {
         title = "ANOVA",
         value = "anova",
         uiOutput("resumo_significancia"),
-        div(class = "tabela-rolagem", tabela_html(res$anova$valor))
+        if (isTRUE(res$anova$ok)) {
+          tabela_relatorio_html(res$anova$valor$tabela, NULL, res$anova$valor$nota, as.matrix(res$anova$valor$destaque),
+                                resumo_ultima = res$anova$valor$linhas_resumo)
+        } else {
+          tags$p(class = "texto-erro", res$anova$erro)
+        }
       ),
       tabPanel(
         title = "Pressupostos",
@@ -464,12 +471,14 @@ server <- function(input, output, session) {
         uiOutput("aviso_medias_interacao"),
         lapply(names(res$medias), function(fator) {
           item <- res$medias[[fator]]
-          div(
-            class = "tabela-rolagem bloco-tabela",
-            if (isTRUE(item$ok)) tabela_html(item$valor) else tags$p(class = "texto-erro", paste0(rotulo(prep, fator), ": ", item$erro))
-          )
+          if (isTRUE(item$ok)) {
+            tabela_relatorio_html(item$valor, paste("Médias ± erro-padrão por", rotulo(prep, fator)), nota_teste(res$opcoes))
+          } else {
+            tags$p(class = "texto-erro", paste0(rotulo(prep, fator), ": ", item$erro))
+          }
         }),
-        tags$p(class = "explicacao nota-resultado", "Médias seguidas pela mesma letra não diferem entre si pelo teste t (2 níveis) ou Tukey (3 ou mais níveis).")
+        if (eh_parcela_subdividida(prep$delineamento)) tags$p(class = "explicacao nota-resultado",
+          "Parcelas subdivididas: o fator da parcela é comparado com o erro (a) e o da subparcela, com o erro (b).")
       )
     )
 
@@ -550,7 +559,8 @@ server <- function(input, output, session) {
     tagList(
       div(
         class = "etiquetas-resultado",
-        tags$span(class = "etiqueta", if (identical(prep$delineamento, "DBC")) "DBC" else "DIC"),
+        tags$span(class = "etiqueta", SIGLAS_DELINEAMENTO[[prep$delineamento]]),
+        tags$span(class = "etiqueta", nome_teste(res$opcoes$teste %||% "auto")),
         tags$span(class = "etiqueta", paste(rotulo(prep, prep$fatores), collapse = " × ")),
         tags$span(class = "etiqueta", sprintf("%d observações", prep$n_obs)),
         tags$span(class = "etiqueta", paste0("Significância ", formatC(res$opcoes$alpha * 100, format = "f", digits = 0), "%"))
@@ -660,19 +670,26 @@ server <- function(input, output, session) {
   output$tabela_interacao <- renderUI({
     res <- resultado()
     pares <- fatores_interacao()
-    tabela <- tabela_interacao(res$prep, res$opcoes, pares[1], pares[2])
-    if (!isTRUE(tabela$ok)) {
-      return(tags$p(class = "texto-erro", paste("Não foi possível gerar o desdobramento:", tabela$erro)))
-    }
+    prep <- res$prep
+    tabelas <- lapply(prep$respostas, function(v) {
+      t <- tentar(interacao_dados(prep, res$opcoes, v, pares[1], pares[2]))
+      if (isTRUE(t$ok)) {
+        tabela_relatorio_html(t$valor, paste0(rotulo(prep, v), ": ", rotulo(prep, pares[1]), " × ", rotulo(prep, pares[2])))
+      } else {
+        tags$p(class = "texto-erro", paste0(rotulo(prep, v), ": não foi possível gerar o desdobramento (", t$erro, ")."))
+      }
+    })
     tagList(
-      div(class = "tabela-rolagem", tabela_html(tabela$valor)),
+      tabelas,
       tags$p(
         class = "explicacao nota-resultado",
-        "Letras maiúsculas comparam os níveis do fator nas colunas dentro de cada linha; letras minúsculas comparam os níveis do fator nas linhas dentro de cada coluna.",
-        if (length(res$prep$fatores) == 3) " Com três fatores, as médias são ajustadas sobre os níveis do fator não exibido."
+        nota_teste(res$opcoes, desdobramento = TRUE),
+        if (length(prep$fatores) == 3) " Com três fatores, as médias são ajustadas sobre os níveis do fator não exibido.",
+        if (eh_parcela_subdividida(prep$delineamento)) " Parcelas subdivididas: a subparcela dentro de cada parcela usa o erro (b); a parcela dentro de cada subparcela usa o erro combinado com graus de liberdade de Satterthwaite."
       )
     )
   })
+
 
   grafico_medias_atual <- reactive({
     res <- resultado()
