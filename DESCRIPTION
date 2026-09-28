@@ -1,7 +1,7 @@
 Package: ranovaapp
 Type: Shiny
 Title: Ranova - Analise de Variancia de Experimentos Fatoriais
-Version: 2.2.0
+Version: 2.2.1
 Authors@R: person("Marlenildo", role = c("aut", "cre", "cph"))
 Description: Aplicativo Shiny para analisar experimentos simples (um fator),
     em esquema fatorial (dois ou tres fatores), em parcelas subdivididas

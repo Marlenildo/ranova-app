@@ -1,41 +1,40 @@
 # Gera a logo do Ranova (www/img/logo_app.png e www/img/favicon.png).
-# Desenho plano, no mesmo traço do Croma e do Minhas Entregas: três médias de
-# tratamentos (barras com pontas arredondadas, cores CIELCH) sobre a linha de base
-# e o erro-padrão da maior média, em azul institucional.
+# Desenho plano, no mesmo traço do Croma e do Minhas Entregas: um quadro de
+# bordas arredondadas em azul institucional com três médias de tratamentos
+# (barras com pontas arredondadas, cores CIELCH) crescendo dentro dele.
 # Uso: Rscript scripts/gerar_logo_app.R
 
+library(grid)
 library(colorspace)
 
-MEDIAS <- c(.34, .62, .9)
+MEDIAS <- c(.36, .58, .8)
 MATIZES <- c(250, 148, 78)
+AZUL <- "#173B5B"
 
-desenhar_logo <- function(escala = 1) {
-  par(mar = c(0, 0, 0, 0), bg = "transparent")
-  plot.new(); plot.window(c(-1, 1), c(-1, 1), asp = 1)
+desenhar_logo <- function(lado) {
+  grid.newpage()
+  u <- function(x) unit(x, "npc")
+  espessura_quadro <- lado * .075
 
-  espessura <- 92 * escala
-  base <- -.72
-  posicoes <- c(-.5, 0, .5)
+  # Quadro de bordas arredondadas
+  grid.roundrect(u(.5), u(.5), u(.84), u(.84), r = unit(.2, "snpc"),
+                 gp = gpar(col = AZUL, fill = "white", lwd = espessura_quadro * 72 / 96, linejoin = "round"))
 
+  # Barras: largas, com pontas arredondadas, apoiadas numa base comum
+  largura <- lado * .2 * 72 / 96
+  base <- .29
+  posicoes <- c(.31, .5, .69)
   for (i in seq_along(MEDIAS)) {
     cor <- hex(polarLAB(L = if (MATIZES[i] > 200) 54 else 64,
                         C = if (MATIZES[i] > 200) 34 else 44, H = MATIZES[i]), fixup = TRUE)
-    segments(posicoes[i], base, posicoes[i], base + MEDIAS[i] * 1.3,
-             col = cor, lwd = espessura, lend = "round")
+    grid.segments(u(posicoes[i]), u(base), u(posicoes[i]), u(base + MEDIAS[i] * .52),
+                  gp = gpar(col = cor, lwd = largura, lineend = "round"))
   }
-
-  # Erro-padrão da maior média
-  topo <- base + MEDIAS[3] * 1.3
-  segments(.5, topo + .12, .5, topo + .3, col = "#173B5B", lwd = espessura * .38, lend = "round")
-  segments(.36, topo + .3, .64, topo + .3, col = "#173B5B", lwd = espessura * .38, lend = "round")
-
-  # Linha de base
-  segments(-.86, -.9, .86, -.9, col = "#173B5B", lwd = espessura * .38, lend = "round")
 }
 
 tipo <- if (capabilities("aqua")) "quartz" else "cairo"
 dir.create("www/img", showWarnings = FALSE, recursive = TRUE)
 png("www/img/logo_app.png", width = 512, height = 512, bg = "transparent", type = tipo)
-desenhar_logo(); dev.off()
+desenhar_logo(512); dev.off()
 png("www/img/favicon.png", width = 64, height = 64, bg = "transparent", type = tipo)
-desenhar_logo(escala = 64 / 512); dev.off()
+desenhar_logo(64); dev.off()

@@ -8,6 +8,13 @@ e o projeto usa [Versionamento Semântico](https://semver.org/lang/pt-BR/):
 
 ## [Não lançado]
 
+## [2.2.1] - 2026-09-28
+
+### Alterado
+
+- Nova logo: quadro de bordas arredondadas em azul com as três barras dentro,
+  sem a barra de erro. Vale para o app, o favicon e os relatórios PDF e HTML.
+
 ## [2.2.0] - 2026-09-28
 
 ### Adicionado
