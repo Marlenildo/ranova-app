@@ -1297,6 +1297,20 @@ gerar_relatorio_pdf <- function(resultado, arquivo, fator_linha = NULL, fator_co
   desenhar <- function(...) desenhar_tabela(..., classico = identical(estilo_tabela, "classico"))
 
   L <- 8.27; A <- 11.69
+  # Dispositivo só para medir textos durante a paginação. Sem ele, o grid abriria
+  # o dispositivo padrão e gravaria "Rplots.pdf" na pasta do app, o que falha em
+  # servidores onde essa pasta é somente leitura (como no Posit Connect Cloud).
+  arquivo_medida <- tempfile(fileext = ".pdf")
+  if (capabilities("cairo")) {
+    grDevices::cairo_pdf(arquivo_medida, width = L, height = A, family = "sans")
+  } else {
+    grDevices::pdf(NULL, width = L, height = A)
+  }
+  dispositivo_medida <- grDevices::dev.cur()
+  on.exit({
+    if (dispositivo_medida %in% grDevices::dev.list()) grDevices::dev.off(dispositivo_medida)
+    unlink(arquivo_medida)
+  }, add = TRUE)
   margem <- 0.55
   largura_util <- L - 2 * margem
   topo_corpo <- A - 1.12
@@ -1593,12 +1607,15 @@ gerar_relatorio_pdf <- function(resultado, arquivo, fator_linha = NULL, fator_co
   if (!is.null(atual)) paginas[[length(paginas) + 1]] <- atual
   total <- length(paginas)
 
-  if (capabilities("cairo")) {
+  # cairo_pdf preserva acentos e símbolos (×, ±, √); se não abrir no servidor,
+  # cai para o pdf() padrão do R.
+  aberto <- capabilities("cairo") && isTRUE(tryCatch({
     grDevices::cairo_pdf(arquivo, width = L, height = A, onefile = TRUE, family = "sans")
-  } else {
-    grDevices::pdf(arquivo, width = L, height = A, title = titulo)
-  }
-  on.exit(grDevices::dev.off(), add = TRUE)
+    TRUE
+  }, error = function(e) FALSE))
+  if (!aberto) grDevices::pdf(arquivo, width = L, height = A, title = titulo, encoding = "ISOLatin1")
+  dispositivo_saida <- grDevices::dev.cur()
+  on.exit(if (dispositivo_saida %in% grDevices::dev.list()) grDevices::dev.off(dispositivo_saida), add = TRUE, after = FALSE)
 
   for (n in seq_along(paginas)) {
     grid::grid.newpage()

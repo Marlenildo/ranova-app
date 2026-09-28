@@ -8,6 +8,17 @@ e o projeto usa [Versionamento Semântico](https://semver.org/lang/pt-BR/):
 
 ## [Não lançado]
 
+## [2.3.1] - 2026-09-28
+
+### Corrigido
+
+- Relatório PDF mais robusto no servidor: os textos são medidos num
+  dispositivo temporário próprio, sem gravar `Rplots.pdf` na pasta do app; o
+  arquivo é gerado num temporário com extensão `.pdf` e só então entregue; se
+  o `cairo_pdf` não abrir, usa o `pdf()` padrão do R.
+- Se a geração do PDF ou do HTML falhar, o app mostra o motivo na tela e
+  registra no log do servidor, em vez de entregar um arquivo quebrado.
+
 ## [2.3.0] - 2026-09-28
 
 ### Adicionado

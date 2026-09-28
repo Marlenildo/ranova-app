@@ -935,6 +935,26 @@ server <- function(input, output, session) {
   output$baixar_painel <- download_grafico("painel", function() painel_atual()$grafico, function() "painel")
 
   # Argumentos comuns aos relatórios PDF e HTML.
+  # Gera o relatório num arquivo temporário com a extensão certa e só então o copia
+  # para o download. Se algo falhar, mostra o motivo na tela (e no log do servidor)
+  # em vez de entregar um arquivo quebrado sem explicação.
+  gerar_arquivo_relatorio <- function(gerador, argumentos, destino, extensao, rotulo) {
+    temporario <- tempfile(fileext = extensao)
+    on.exit(unlink(temporario), add = TRUE)
+    withProgress(message = paste("Gerando relatório", rotulo, "..."), value = 0.4, {
+      tryCatch({
+        do.call(gerador, c(argumentos[1], list(arquivo = temporario), argumentos[-1]))
+        if (!file.exists(temporario) || file.size(temporario) == 0) stop("o arquivo do relatório ficou vazio.")
+        file.copy(temporario, destino, overwrite = TRUE)
+      }, error = function(e) {
+        message("Erro ao gerar o relatório ", rotulo, ": ", conditionMessage(e))
+        showNotification(paste0("Não foi possível gerar o relatório ", rotulo, ": ", conditionMessage(e)),
+                         type = "error", duration = NULL)
+        stop(e)
+      })
+    })
+  }
+
   argumentos_relatorio <- function() {
     res <- resultado()
     req(res)
@@ -961,9 +981,7 @@ server <- function(input, output, session) {
     filename = function() paste0("ranova_relatorio_", format(Sys.time(), "%Y%m%d_%H%M"), ".pdf"),
     content = function(file) {
       argumentos <- argumentos_relatorio()
-      withProgress(message = "Gerando relatório PDF...", value = 0.4, {
-        do.call(gerar_relatorio_pdf, c(argumentos[1], list(arquivo = file), argumentos[-1]))
-      })
+      gerar_arquivo_relatorio(gerar_relatorio_pdf, argumentos, file, ".pdf", "PDF")
     }
   )
 
@@ -971,9 +989,7 @@ server <- function(input, output, session) {
     filename = function() paste0("ranova_relatorio_", format(Sys.time(), "%Y%m%d_%H%M"), ".html"),
     content = function(file) {
       argumentos <- argumentos_relatorio()
-      withProgress(message = "Gerando relatório HTML...", value = 0.4, {
-        do.call(gerar_relatorio_html, c(argumentos[1], list(arquivo = file), argumentos[-1]))
-      })
+      gerar_arquivo_relatorio(gerar_relatorio_html, argumentos, file, ".html", "HTML")
     }
   )
 
