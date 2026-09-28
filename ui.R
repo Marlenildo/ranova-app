@@ -138,8 +138,8 @@ ui <- fluidPage(
         uiOutput("painel_graficos_ui")
       ),
 
-      cartao(6, "Relatório em PDF", etiqueta = "PRONTO PARA IMPRESSÃO", classe = "painel-relatorio",
-        div(class = "explicacao", "Gera o PDF (A4 retrato) com resumo, leitura rápida, pressupostos, ANOVA, médias, desdobramento da interação, gráficos e o painel montado acima."),
+      cartao(6, "Relatório", etiqueta = "PDF · HTML", classe = "painel-relatorio",
+        div(class = "explicacao", HTML("Resumo, leitura rápida, pressupostos, discrepantes, ANOVA, médias, desdobramento da interação, gráficos e o painel montado acima. <b>PDF</b> (A4 retrato) para imprimir e anexar; <b>HTML</b> com o visual do app, navegação por seções e imagens embutidas, para abrir no navegador ou enviar por e-mail.")),
         br(),
         fluidRow(
           column(6, textInput("titulo_relatorio", "Título do relatório", value = "Relatório de análise de variância", width = "100%")),
@@ -148,8 +148,8 @@ ui <- fluidPage(
         textAreaInput("descricao_relatorio", "Descrição do experimento / observações", width = "100%", rows = 3,
           placeholder = "Ex.: ensaio de adubação nitrogenada em melão, safra 2026..."),
         fluidRow(
-          column(7, div(class = "explicacao", textOutput("info_relatorio"))),
-          column(5, div(class = "area-botao-pdf", uiOutput("botao_relatorio")))
+          column(5, div(class = "explicacao", textOutput("info_relatorio"))),
+          column(7, div(class = "area-botao-pdf botoes-relatorio", uiOutput("botao_relatorio")))
         )
       )
     )

@@ -139,3 +139,7 @@ details.recolhivel > summary:focus-visible { outline:3px solid rgba(42,92,146,.2
 details.recolhivel[open] .recolhivel-seta { transform:rotate(-135deg); margin-top:6px; }
 .recolhivel-corpo { padding:2px 14px 10px; border-top:1px dashed var(--line); }
 .recolhivel-corpo > .explicacao { margin:8px 0 2px; }
+.botoes-relatorio > div { display:flex; gap:10px; }.botoes-relatorio .btn { flex:1; width:auto; }
+.btn-html { color:var(--navy); background:#fff; border:1px solid #9cb8cf; }.btn-html:hover, .btn-html:focus { color:#fff; background:var(--navy); border-color:var(--navy); }
+.btn-html[disabled] { opacity:.55; cursor:not-allowed; }
+@media(max-width:767px) { .botoes-relatorio > div { flex-direction:column; } }

@@ -572,9 +572,15 @@ server <- function(input, output, session) {
 
   output$botao_relatorio <- renderUI({
     if (is.null(resultado())) {
-      return(tags$button(class = "btn btn-pdf", disabled = "disabled", icon("download"), " Baixar relatório PDF"))
+      return(tagList(
+        tags$button(class = "btn btn-pdf", disabled = "disabled", icon("file-pdf"), " Baixar PDF"),
+        tags$button(class = "btn btn-html", disabled = "disabled", icon("code"), " Baixar HTML")
+      ))
     }
-    downloadButton("baixar_relatorio", "Baixar relatório PDF", icon = icon("download"), class = "btn-pdf")
+    tagList(
+      downloadButton("baixar_relatorio", "Baixar PDF", icon = icon("file-pdf"), class = "btn-pdf"),
+      downloadButton("baixar_relatorio_html", "Baixar HTML", icon = icon("code"), class = "btn-html")
+    )
   })
 
   significancia_atual <- reactive({
@@ -839,7 +845,7 @@ server <- function(input, output, session) {
       div(class = "explicacao", icon("pen"), " Os nomes de variáveis, fatores e níveis são editados em Resultados → Gráficos e valem também para este painel."),
       div(class = "area-painel", plotOutput("painel_grafico", height = "auto")),
       controles_exportacao("painel", largura = 17, altura = 14),
-      checkboxInput("painel_no_pdf", "Incluir este painel no relatório PDF", TRUE)
+      checkboxInput("painel_no_pdf", "Incluir este painel no relatório (PDF e HTML)", TRUE)
     )
   })
 
@@ -909,28 +915,46 @@ server <- function(input, output, session) {
 
   output$baixar_painel <- download_grafico("painel", function() painel_atual()$grafico, function() "painel")
 
+  # Argumentos comuns aos relatórios PDF e HTML.
+  argumentos_relatorio <- function() {
+    res <- resultado()
+    req(res)
+    pares <- if (length(res$prep$fatores) >= 2) {
+      escolhidos <- c(input$fator_linha, input$fator_coluna)
+      if (length(escolhidos) == 2 && escolhidos[1] != escolhidos[2]) escolhidos else res$prep$fatores[1:2]
+    }
+    list(
+      resultado = res,
+      fator_linha = pares[1],
+      fator_coluna = pares[2],
+      titulo = input$titulo_relatorio,
+      responsavel = input$responsavel_relatorio,
+      descricao = input$descricao_relatorio,
+      rotulos = rotulos(),
+      painel = if (isTRUE(input$painel_no_pdf)) tryCatch(painel_atual(), error = function(e) NULL),
+      estilo = estilo_interacao(),
+      estilo_medias = estilo_medias()
+    )
+  }
+
   output$baixar_relatorio <- downloadHandler(
     filename = function() paste0("ranova_relatorio_", format(Sys.time(), "%Y%m%d_%H%M"), ".pdf"),
     content = function(file) {
-      res <- resultado()
-      req(res)
-      pares <- if (length(res$prep$fatores) >= 2) {
-        escolhidos <- c(input$fator_linha, input$fator_coluna)
-        if (length(escolhidos) == 2 && escolhidos[1] != escolhidos[2]) escolhidos else res$prep$fatores[1:2]
-      }
-      painel <- if (isTRUE(input$painel_no_pdf)) tryCatch(painel_atual(), error = function(e) NULL)
+      argumentos <- argumentos_relatorio()
       withProgress(message = "Gerando relatório PDF...", value = 0.4, {
-        gerar_relatorio_pdf(
-          res, file, pares[1], pares[2],
-          titulo = input$titulo_relatorio,
-          responsavel = input$responsavel_relatorio,
-          descricao = input$descricao_relatorio,
-          rotulos = rotulos(),
-          painel = painel,
-          estilo = estilo_interacao(),
-          estilo_medias = estilo_medias()
-        )
+        do.call(gerar_relatorio_pdf, c(argumentos[1], list(arquivo = file), argumentos[-1]))
       })
     }
   )
+
+  output$baixar_relatorio_html <- downloadHandler(
+    filename = function() paste0("ranova_relatorio_", format(Sys.time(), "%Y%m%d_%H%M"), ".html"),
+    content = function(file) {
+      argumentos <- argumentos_relatorio()
+      withProgress(message = "Gerando relatório HTML...", value = 0.4, {
+        do.call(gerar_relatorio_html, c(argumentos[1], list(arquivo = file), argumentos[-1]))
+      })
+    }
+  )
+
 }

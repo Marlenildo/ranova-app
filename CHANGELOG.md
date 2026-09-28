@@ -8,6 +8,22 @@ e o projeto usa [Versionamento Semântico](https://semver.org/lang/pt-BR/):
 
 ## [Não lançado]
 
+## [1.9.0] - 2026-09-28
+
+### Adicionado
+
+- **Relatório em HTML**, além do PDF: um único arquivo com o visual do app
+  (cabeçalho com logo, menu de seções fixo no topo, cartões numerados,
+  indicadores, leitura rápida, tabelas com efeitos em destaque, gráficos
+  numerados, diagnóstico dos resíduos, discrepantes e painel). As imagens vão
+  embutidas, então o arquivo abre em qualquer navegador, funciona no celular e
+  pode ser enviado por e-mail ou impresso.
+
+### Alterado
+
+- O cartão 6 passa a se chamar **Relatório**, com os botões "Baixar PDF" e
+  "Baixar HTML" lado a lado.
+
 ## [1.8.0] - 2026-09-27
 
 ### Adicionado

@@ -1154,6 +1154,28 @@ desenhar_tabela <- function(tabela, x, y, largura_max, titulo = NULL, nota = NUL
   }
 }
 
+# Frases da leitura rápida (efeitos e interações significativos por variável).
+textos_leitura <- function(resultado) {
+  prep <- resultado$prep
+  sig <- if (isTRUE(resultado$significancia$ok)) resultado$significancia$valor else NULL
+  leitura <- character()
+  if (!is.null(sig)) {
+    for (v in prep$respostas) {
+      s_v <- sig[sig$variavel == v & sig$significativo, , drop = FALSE]
+      inter <- s_v[s_v$interacao, , drop = FALSE]
+      if (nrow(inter) > 0) {
+        leitura <- c(leitura, paste0(rotulo(prep, v), ": interação ", paste(vapply(inter$termo, function(t) rotulo_termo(prep, t), character(1)), collapse = ", "),
+                                     " significativa (p = ", paste(formatar_p(inter$p), collapse = "; "), "); interprete pelo desdobramento."))
+      } else if (nrow(s_v) > 0) {
+        leitura <- c(leitura, paste0(rotulo(prep, v), ": efeito significativo de ", paste(vapply(s_v$termo, function(t) rotulo_termo(prep, t), character(1)), collapse = ", "), "."))
+      } else {
+        leitura <- c(leitura, paste0(rotulo(prep, v), ": nenhum efeito significativo dos fatores."))
+      }
+    }
+  }
+  leitura
+}
+
 gerar_relatorio_pdf <- function(resultado, arquivo, fator_linha = NULL, fator_coluna = NULL,
                                 titulo = "Relatório de análise de variância", responsavel = "", descricao = "",
                                 rotulos = NULL, painel = NULL, estilo = NULL, estilo_medias = NULL) {
@@ -1185,21 +1207,7 @@ gerar_relatorio_pdf <- function(resultado, arquivo, fator_linha = NULL, fator_co
 
   # Página 1: resumo
   sig <- if (isTRUE(resultado$significancia$ok)) resultado$significancia$valor else NULL
-  leitura <- character()
-  if (!is.null(sig)) {
-    for (v in prep$respostas) {
-      s_v <- sig[sig$variavel == v & sig$significativo, , drop = FALSE]
-      inter <- s_v[s_v$interacao, , drop = FALSE]
-      if (nrow(inter) > 0) {
-        leitura <- c(leitura, paste0(rotulo(prep, v), ": interação ", paste(vapply(inter$termo, function(t) rotulo_termo(prep, t), character(1)), collapse = ", "),
-                                     " significativa (p = ", paste(formatar_p(inter$p), collapse = "; "), "); interprete pelo desdobramento."))
-      } else if (nrow(s_v) > 0) {
-        leitura <- c(leitura, paste0(rotulo(prep, v), ": efeito significativo de ", paste(vapply(s_v$termo, function(t) rotulo_termo(prep, t), character(1)), collapse = ", "), "."))
-      } else {
-        leitura <- c(leitura, paste0(rotulo(prep, v), ": nenhum efeito significativo dos fatores."))
-      }
-    }
-  }
+  leitura <- textos_leitura(resultado)
   niveis_txt <- vapply(prep$fatores, function(f) paste0(rotulo(prep, f), " (", nlevels(prep$dados[[f]]), " níveis: ",
                                                             paste(utils::head(levels(prep$dados[[f]]), 8), collapse = ", "),
                                                             if (nlevels(prep$dados[[f]]) > 8) ", ..." else "", ")"), character(1))
@@ -1519,3 +1527,280 @@ gerar_relatorio_pdf <- function(resultado, arquivo, fator_linha = NULL, fator_co
   }
   invisible(arquivo)
 }
+
+
+# ---------------------------------------------------------
+# Relatório em HTML (arquivo único, com o visual do app)
+# ---------------------------------------------------------
+
+png_base64 <- function(grafico, largura, altura, dpi = 150) {
+  arquivo <- tempfile(fileext = ".png")
+  on.exit(unlink(arquivo), add = TRUE)
+  ggsave(arquivo, grafico, width = largura, height = altura, dpi = dpi, bg = "white")
+  knitr::image_uri(arquivo)
+}
+
+# Tabela HTML no estilo das tabelas do app: cabeçalho azul-marinho, linhas zebradas,
+# células em destaque e última linha de resumo (CV) opcional.
+tabela_relatorio_html <- function(tabela, titulo = NULL, nota = NULL, destaque = NULL, resumo_ultima = FALSE) {
+  textos <- as.matrix(tabela)
+  textos[is.na(textos)] <- ""
+  cabecalhos <- names(tabela)
+  div(class = "bloco-tabela",
+    if (!is.null(titulo)) h3(titulo),
+    div(class = "rolagem",
+      tags$table(class = "tabela",
+        tags$thead(tags$tr(lapply(cabecalhos, function(cab) tags$th(HTML(gsub("\n", "<br>", htmltools::htmlEscape(cab), fixed = TRUE)))))),
+        tags$tbody(lapply(seq_len(nrow(textos)), function(i) {
+          tags$tr(class = if (resumo_ultima && i == nrow(textos)) "linha-resumo",
+            lapply(seq_along(cabecalhos), function(j) {
+              tags$td(class = paste(if (j == 1) "primeira", if (!is.null(destaque) && isTRUE(destaque[i, j])) "destaque"), textos[i, j])
+            }))
+        }))
+      )
+    ),
+    if (!is.null(nota)) p(class = "nota", nota)
+  )
+}
+
+gerar_relatorio_html <- function(resultado, arquivo, fator_linha = NULL, fator_coluna = NULL,
+                                 titulo = "Relatório de análise de variância", responsavel = "", descricao = "",
+                                 rotulos = NULL, painel = NULL, estilo = NULL, estilo_medias = NULL) {
+  prep <- resultado$prep
+  opcoes <- resultado$opcoes
+  titulo <- trimws(titulo %||% "")
+  if (!nzchar(titulo)) titulo <- "Relatório de análise de variância"
+  responsavel <- trimws(responsavel %||% "")
+  descricao <- trimws(descricao %||% "")
+  data_hora <- format(Sys.time(), "%d/%m/%Y às %H:%M")
+  imagem <- function(caminho) tryCatch(knitr::image_uri(caminho), error = function(e) NULL)
+  logo_app <- imagem("www/img/logo_app.png")
+  logo_autor <- imagem("www/img/logo_marlenildo.png")
+  interacao_ok <- !is.null(fator_linha) && !is.null(fator_coluna)
+
+  secao <- function(id, numero, titulo_secao, cor, ...) {
+    tags$section(id = id, class = paste("painel", cor),
+      h2(tags$span(class = "numero", numero), titulo_secao), ...)
+  }
+  figura <- function(grafico, legenda, largura = 7, altura = 4.4) {
+    if (!isTRUE(grafico$ok)) return(NULL)
+    tags$figure(tags$img(src = png_base64(grafico$valor, largura, altura), alt = legenda), tags$figcaption(legenda))
+  }
+
+  # Indicadores
+  tratamentos <- prod(vapply(prep$fatores, function(f) nlevels(prep$dados[[f]]), numeric(1)))
+  kpi <- function(rotulo_kpi, valor, detalhe) div(class = "kpi", div(class = "kpi-rotulo", rotulo_kpi), div(class = "kpi-valor", valor), div(class = "kpi-detalhe", detalhe))
+  kpis <- div(class = "kpis",
+    kpi("Delineamento", prep$delineamento, if (identical(prep$delineamento, "DBC")) paste(nlevels(prep$dados[[prep$bloco]]), "blocos") else "inteiramente casualizado"),
+    kpi("Tratamentos", tratamentos, paste(vapply(prep$fatores, function(f) nlevels(prep$dados[[f]]), numeric(1)), collapse = " × ")),
+    kpi("Observações", prep$n_obs, paste(length(prep$respostas), if (length(prep$respostas) == 1) "variável resposta" else "variáveis resposta")),
+    kpi("Significância", paste0(formatC(opcoes$alpha * 100, format = "f", digits = 0), "%"), "nível dos testes")
+  )
+  niveis_txt <- vapply(prep$fatores, function(f) paste0(rotulo(prep, f), " (", paste(levels(prep$dados[[f]]), collapse = ", "), ")"), character(1))
+  itens <- list(
+    c("Fatores", paste(niveis_txt, collapse = "; ")),
+    c("Variáveis resposta", paste(rotulo(prep, prep$respostas), collapse = ", ")),
+    c("Comparação de médias", "Teste t (2 níveis) ou Tukey (3 ou mais níveis)"),
+    c("Erro-padrão das médias", if (identical(opcoes$tipo_se, "descritivo")) "Descritivo (dos dados)" else "Do modelo (médias ajustadas)")
+  )
+  if (nzchar(responsavel)) itens <- c(itens, list(c("Responsável", responsavel)))
+  itens <- c(itens, list(c("Emissão", data_hora)))
+
+  # Tabelas
+  anova <- anova_dados(prep, opcoes$formato, opcoes$digitos_anova)
+  diag <- if (isTRUE(resultado$diagnostico$ok)) resultado$diagnostico$valor
+  subs <- resultado$substituicoes
+  disc <- resultado$discrepantes
+
+  sumario <- list(c("resumo", "Resumo"), c("anova", "Análise de variância"), c("pressupostos", "Pressupostos"),
+                  c("medias", "Médias"), if (interacao_ok) c("interacao", "Desdobramento"), c("graficos", "Gráficos"),
+                  if (!is.null(painel)) c("painel", "Painel"))
+  sumario <- Filter(Negate(is.null), sumario)
+
+  graficos <- list()
+  for (v in prep$respostas) {
+    for (fator in prep$fatores) {
+      graficos[[length(graficos) + 1]] <- figura(
+        tentar(grafico_medias(prep, opcoes, v, fator, rotulos, base_size = 12, estilo = estilo_medias)),
+        paste0(rotulo_grafico(prep, v, rotulos), " em função de ", rotulo_grafico(prep, fator, rotulos))
+      )
+    }
+    if (interacao_ok) {
+      graficos[[length(graficos) + 1]] <- figura(
+        tentar(grafico_interacao(prep, v, fator_linha, fator_coluna, rotulos, base_size = 12, estilo = estilo, opcoes = opcoes)),
+        paste0("Interação ", rotulo_grafico(prep, fator_linha, rotulos), " × ", rotulo_grafico(prep, fator_coluna, rotulos), ": ", rotulo_grafico(prep, v, rotulos))
+      )
+    }
+  }
+  graficos <- Filter(Negate(is.null), graficos)
+  graficos <- lapply(seq_along(graficos), function(k) {
+    fig <- graficos[[k]]
+    fig$children[[2]] <- tags$figcaption(tags$b(paste0("Figura ", k, ". ")), fig$children[[2]]$children)
+    fig
+  })
+
+  cabeca <- paste0(
+    '<head>\n<meta charset="utf-8">\n<meta name="viewport" content="width=device-width, initial-scale=1">\n',
+    '<title>', htmltools::htmlEscape(paste("Ranova ·", titulo)), '</title>\n',
+    if (!is.null(logo_app)) paste0('<link rel="icon" href="', logo_app, '">\n') else "",
+    '<style>', CSS_RELATORIO_HTML, '</style>\n</head>'
+  )
+  corpo <- tagList(
+    tags$body(
+      tags$header(class = "cabecalho",
+        div(class = "marca",
+          if (!is.null(logo_app)) tags$img(src = logo_app, alt = "Logo do Ranova"),
+          div(div(class = "nome", "Ranova"), div(class = "descricao", "Análise de variância de experimentos fatoriais"))
+        ),
+        tags$nav(lapply(sumario, function(s) tags$a(href = paste0("#", s[1]), s[2])))
+      ),
+      tags$main(
+        div(class = "titulo-relatorio",
+          h1(titulo),
+          p(class = "subtitulo", paste0("Gerado em ", data_hora, if (nzchar(responsavel)) paste0(" · ", responsavel)))
+        ),
+
+        secao("resumo", 1, "Resumo do experimento", "azul",
+          kpis,
+          div(class = "duas-colunas",
+            div(
+              h3("Identificação"),
+              tags$dl(class = "identificacao", lapply(itens, function(it) tagList(tags$dt(it[1]), tags$dd(it[2]))))
+            ),
+            div(
+              h3("Leitura rápida"),
+              div(class = "leitura", tags$ul(lapply(textos_leitura(resultado), tags$li))),
+              h3("Descrição do experimento"),
+              p(class = if (nzchar(descricao)) "descricao-exp" else "descricao-exp vazia", if (nzchar(descricao)) descricao else "Nenhuma descrição informada.")
+            )
+          ),
+          if (!is.null(subs) && nrow(subs) > 0) tabela_relatorio_html(
+            data.frame("Variável" = subs$variavel, "Linha" = subs$linha, "Tratamento" = subs$tratamento,
+                       "Valor original" = num_pt(subs$original, 3), "Média usada" = num_pt(subs$novo, 3), "Motivo" = subs$motivo,
+                       check.names = FALSE),
+            "Valores substituídos", "Valores trocados pela média das demais repetições do mesmo tratamento antes da análise.")
+        ),
+
+        secao("anova", 2, "Análise de variância", "azul",
+          tabela_relatorio_html(anova$tabela, NULL, anova$nota, as.matrix(anova$destaque), resumo_ultima = TRUE)
+        ),
+
+        secao("pressupostos", 3, "Pressupostos da ANOVA", "verde",
+          if (!is.null(diag)) {
+            marca <- matrix(FALSE, nrow(diag), ncol(diag))
+            marca[, 3] <- diag[[3]] == "Não atendida"
+            marca[, 5] <- diag[[5]] == "Não atendida"
+            tabela_relatorio_html(diag, NULL, "Shapiro-Wilk (normalidade dos resíduos) e Levene (homogeneidade). Em destaque, pressupostos não atendidos.", marca)
+          },
+          if (!is.null(disc) && nrow(disc) > 0) {
+            marca <- matrix(FALSE, nrow(disc), 7)
+            marca[, 7] <- grepl("outlier", disc$classificacao, ignore.case = TRUE)
+            tabela_relatorio_html(
+              data.frame("Variável" = rotulo(prep, disc$variavel), "Linha" = disc$linha, "Tratamento" = disc$tratamento,
+                         "Observado" = num_pt(disc$observado, 3), "t" = num_pt(disc$t, 2), "Cook" = num_pt(disc$cook, 3),
+                         "Situação" = disc$classificacao, check.names = FALSE),
+              "Possíveis valores discrepantes", "Outlier: resíduo studentizado |t| > 3. Influente: Cook > 4/(n - p) com |t| > 2.", marca)
+          },
+          h3("Diagnóstico dos resíduos"),
+          div(class = "grade-diagnostico", lapply(prep$respostas, function(v) {
+            figura(tentar(grafico_residuos(prep, v, base_size = 11, aparencia = estilo_medias)), rotulo(prep, v), largura = 9, altura = 7)
+          }))
+        ),
+
+        secao("medias", 4, "Médias", "verde",
+          lapply(prep$fatores, function(fator) {
+            m <- tentar(medias_dados(prep, opcoes, fator))
+            if (isTRUE(m$ok)) tabela_relatorio_html(m$valor, paste("Médias ± erro-padrão por", rotulo(prep, fator)),
+              "Médias seguidas pela mesma letra na coluna não diferem entre si pelo teste t (2 níveis) ou Tukey (3 ou mais níveis).")
+          })
+        ),
+
+        if (interacao_ok) secao("interacao", 5, "Desdobramento da interação", "dourado",
+          lapply(prep$respostas, function(v) {
+            t <- tentar(interacao_dados(prep, opcoes, v, fator_linha, fator_coluna))
+            if (isTRUE(t$ok)) tabela_relatorio_html(t$valor, paste0(rotulo(prep, v), ": ", rotulo(prep, fator_linha), " × ", rotulo(prep, fator_coluna)),
+              paste0("Minúsculas comparam as linhas dentro de cada coluna; maiúsculas comparam as colunas dentro de cada linha.",
+                     if (length(prep$fatores) == 3) " Médias ajustadas sobre os níveis do fator não exibido." else ""))
+          })
+        ),
+
+        secao("graficos", if (interacao_ok) 6 else 5, "Gráficos", "azul",
+          div(class = "grade-graficos", graficos)
+        ),
+
+        if (!is.null(painel)) secao("painel", if (interacao_ok) 7 else 6, "Painel de gráficos", "dourado",
+          tags$figure(class = "figura-painel",
+            tags$img(src = png_base64(painel$grafico, painel$dimensoes$largura, painel$dimensoes$altura, dpi = 150), alt = "Painel de gráficos"))
+        )
+      ),
+      tags$footer(class = "rodape",
+        span("Desenvolvido por"),
+        if (!is.null(logo_autor)) tags$img(src = logo_autor, alt = "Marlenildo Soluções em Curso"),
+        span(class = "versao", paste0("Ranova v", VERSAO_APP, " · pacote ranova ", VERSAO_PACOTE)),
+        div(class = "privacidade", TEXTO_PRIVACIDADE)
+      )
+    )
+  )
+
+  writeLines(c("<!DOCTYPE html>", '<html lang="pt-BR">', cabeca, as.character(corpo), "</html>"), arquivo, useBytes = TRUE)
+  invisible(arquivo)
+}
+
+CSS_RELATORIO_HTML <- "
+:root { --navy:#173b5b; --blue:#2a5c92; --blue-soft:#eaf2fa; --green:#4d965d; --green-dark:#347b46; --gold:#c0924a; --ink:#263b4d; --muted:#627589; --line:#d9e3eb; --canvas:#f4f7fa; --red:#b94b4b; }
+* { box-sizing:border-box; }
+html { scroll-behavior:smooth; }
+body { margin:0; background:var(--canvas); color:var(--ink); font-family:'Avenir Next','Segoe UI',Arial,sans-serif; line-height:1.5; }
+.cabecalho { position:sticky; top:0; z-index:5; display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap; background:#fff; border-bottom:3px solid var(--navy); padding:10px max(20px, calc((100% - 1180px) / 2)); }
+.marca { display:flex; align-items:center; gap:12px; }.marca img { width:44px; height:44px; }
+.marca .nome { color:var(--navy); font-size:22px; font-weight:800; line-height:1.1; }.marca .descricao { color:var(--blue); font-size:12.5px; font-weight:700; }
+nav { display:flex; flex-wrap:wrap; gap:6px; }
+nav a { color:var(--muted); text-decoration:none; font-size:12.5px; font-weight:700; border:1px solid var(--line); border-radius:999px; padding:5px 11px; background:#fff; }
+nav a:hover { color:#fff; background:var(--navy); border-color:var(--navy); }
+main { max-width:1180px; margin:0 auto; padding:24px 20px 10px; }
+.titulo-relatorio h1 { color:var(--navy); font-size:30px; margin:6px 0 2px; letter-spacing:-.4px; }
+.subtitulo { color:var(--muted); margin:0 0 18px; }
+.painel { background:#fff; border:1px solid var(--line); border-radius:12px; padding:22px 24px; margin-bottom:18px; scroll-margin-top:90px; }
+.painel.azul { border-top:4px solid var(--blue); }.painel.verde { border-top:4px solid var(--green); }.painel.dourado { border-top:4px solid var(--gold); }
+.painel h2 { display:flex; align-items:center; gap:10px; color:var(--navy); font-size:19px; margin:0 0 16px; }
+.numero { display:inline-flex; align-items:center; justify-content:center; width:30px; height:30px; border-radius:50%; background:var(--navy); color:#fff; font-size:14px; }
+.verde .numero { background:var(--green); }.dourado .numero { background:var(--gold); }
+h3 { color:var(--navy); font-size:14.5px; margin:18px 0 8px; }
+.kpis { display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin-bottom:6px; }
+.kpi { border:1px solid var(--line); border-left:4px solid var(--blue); border-radius:10px; padding:10px 14px; background:#fbfdff; }
+.kpi-rotulo { color:var(--muted); font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.5px; }
+.kpi-valor { color:var(--navy); font-size:22px; font-weight:800; }.kpi-detalhe { color:var(--muted); font-size:12px; }
+.duas-colunas { display:grid; grid-template-columns:1fr 1fr; gap:10px 28px; }
+.identificacao { display:grid; grid-template-columns:max-content 1fr; gap:0; margin:0; }
+.identificacao dt { color:var(--muted); font-size:13px; padding:7px 14px 7px 0; border-bottom:1px solid #eef3f7; }
+.identificacao dd { margin:0; font-weight:700; font-size:13.5px; padding:7px 0; border-bottom:1px solid #eef3f7; }
+.leitura { background:#f8fbf9; border:1px solid #d5e8da; border-left:4px solid var(--green); border-radius:8px; padding:8px 14px; font-size:13.5px; }
+.leitura ul { margin:4px 0; padding-left:18px; }.leitura li + li { margin-top:4px; }
+.descricao-exp { white-space:pre-wrap; margin:0; }.descricao-exp.vazia { color:#9aaab8; font-style:italic; }
+.bloco-tabela + .bloco-tabela { margin-top:18px; }
+.rolagem { overflow-x:auto; border:1px solid var(--line); border-radius:8px; }
+.tabela { border-collapse:collapse; width:100%; font-size:13.5px; font-variant-numeric:tabular-nums; }
+.tabela th { background:var(--navy); color:#fff; font-size:11.5px; font-weight:800; padding:10px 12px; text-align:center; white-space:nowrap; }
+.tabela th:first-child { text-align:left; }
+.tabela td { padding:8px 12px; text-align:center; border-top:1px solid #e7eef4; white-space:nowrap; }
+.tabela td.primeira { text-align:left; font-weight:700; color:var(--navy); }
+.tabela tbody tr:nth-child(even) { background:#f7fafc; }.tabela tbody tr:hover { background:var(--blue-soft); }
+.tabela td.destaque { background:#fff3cd; font-weight:800; }
+.tabela tr.linha-resumo td { background:var(--blue-soft); font-weight:800; color:var(--navy); border-top:2px solid var(--navy); }
+.nota { color:var(--muted); font-size:12px; font-style:italic; margin:6px 0 0; }
+figure { margin:0; background:#fff; border:1px solid var(--line); border-radius:10px; padding:10px; break-inside:avoid; }
+figure img { width:100%; height:auto; display:block; }
+figcaption { color:var(--ink); font-size:12.5px; margin-top:6px; }
+.grade-graficos { display:grid; grid-template-columns:repeat(2,1fr); gap:14px; }
+.grade-diagnostico { display:grid; grid-template-columns:repeat(2,1fr); gap:14px; }
+.figura-painel { max-width:900px; margin:0 auto; }
+.rodape { display:flex; flex-wrap:wrap; align-items:center; justify-content:center; gap:10px; color:#718498; font-size:12px; padding:10px 20px 28px; }
+.rodape img { height:40px; }.rodape .versao { border-left:1px solid var(--line); padding-left:10px; font-weight:700; }
+.rodape .privacidade { flex-basis:100%; text-align:center; max-width:760px; }
+@media (max-width:820px) { .kpis { grid-template-columns:repeat(2,1fr); } .duas-colunas, .grade-graficos, .grade-diagnostico { grid-template-columns:1fr; } .cabecalho { position:static; } .titulo-relatorio h1 { font-size:24px; } }
+@media print {
+  body { background:#fff; } .cabecalho { position:static; } nav { display:none; }
+  .painel { break-inside:avoid-page; box-shadow:none; } .grade-graficos figure, .grade-diagnostico figure { break-inside:avoid; }
+  .cabecalho, .painel, .tabela th, .tabela td.destaque, .linha-resumo td, .kpi, .leitura, .numero { -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+}
+"

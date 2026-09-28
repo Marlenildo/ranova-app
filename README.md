@@ -33,6 +33,7 @@ Aplicativo [Shiny](https://shiny.posit.co/) que dá interface ao pacote R [`rano
 - **Nomes nos gráficos**: edite como aparecem as variáveis, os fatores e os **níveis dos fatores** (por exemplo, "0" → "Controle") nos eixos, legendas, painel e PDF.
 - **Painel de gráficos**: escolha as variáveis e a ordem e monte um painel com quantos gráficos quiser, identificados por letras (A, B, C, D...).
 - **Exportação dos gráficos** em PNG ou TIFF (LZW), com resolução de 150, 300 ou 600 dpi e tamanho em centímetros.
+- **Relatório em HTML**, com o visual do app, navegação por seções e imagens embutidas num único arquivo.
 - **Relatório em PDF** (A4 retrato, no padrão do Croma, com cabeçalho branco): resumo do experimento, leitura rápida dos efeitos, pressupostos, ANOVA, médias, desdobramento da interação, gráficos numerados e o painel montado no app.
 
 Os dados ficam apenas na sessão aberta: nada é gravado em banco de dados, arquivos ou cookies.
