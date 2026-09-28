@@ -13,6 +13,8 @@ ui <- fluidPage(
     tags$meta(name = "description", content = "Ranova: análise de variância de experimentos fatoriais em DIC e DBC, com médias, desdobramento, gráficos e relatório em PDF."),
     tags$link(rel = "icon", type = "image/png", href = "img/favicon.png"),
     tags$title("Ranova · Análise de variância de experimentos fatoriais"),
+    # Botão "Copiar tabela": copia sem a formatação do app
+    tags$script(HTML(JS_COPIAR_TABELA)),
     # Aviso antes de sair da página quando já há dados na sessão (nada é gravado)
     tags$script(HTML(
       "(function() {
@@ -39,9 +41,10 @@ ui <- fluidPage(
     )
   ),
 
-  div(class = "painel painel-informacao painel-apresentacao",
-    div(class = "cabecalho-secao",
-      div(class = "titulo-legenda", icon("circle-info"), " O que o Ranova faz"),
+  tags$details(class = "painel painel-informacao painel-apresentacao",
+    tags$summary(class = "cabecalho-secao",
+      div(class = "titulo-legenda", icon("circle-info"), " O que o Ranova faz",
+          span(class = "dica-expandir", "clique para ver os recursos e o guia rápido")),
       div(class = "tag-secao tag-verde", "GRATUITO · SEM CADASTRO")
     ),
     p(class = "explicacao intro-app", "Análise de variância completa de experimentos agrícolas e biológicos, do lançamento dos dados ao relatório, em poucos cliques e sem programar."),
@@ -102,7 +105,9 @@ ui <- fluidPage(
       div(class = "coord-item", tags$span("CV", class = "coord-sigla"), tags$span("√QM erro / média × 100", class = "coord-faixa"), tags$span("Precisão experimental", class = "coord-descricao")),
       div(class = "coord-item", tags$span("a · b · c", class = "coord-sigla"), tags$span("mesma letra = não difere", class = "coord-faixa"), tags$span("Comparação de médias", class = "coord-descricao")),
       div(class = "coord-item", tags$span("aA", class = "coord-sigla"), tags$span("minúsculas · maiúsculas", class = "coord-faixa"), tags$span("Linhas · colunas no desdobramento", class = "coord-descricao"))
-    )
+    ),
+    p(class = "explicacao dica-copiar", icon("copy"), " Cada tabela de resultados tem o botão ", tags$b("Copiar tabela:"),
+      " ele copia só os números e títulos, sem cores e fontes do app. No Word, cole e a tabela assume o estilo do seu documento; no Excel, cada valor vai para uma célula.")
   ),
 
   fluidRow(

@@ -173,3 +173,25 @@ table.tabela td.destaque { background:#fff3cd; font-weight:800; }
 table.tabela tr.linha-resumo td { background:var(--blue-soft); font-weight:800; color:var(--navy); border-top:2px solid var(--navy); }
 .bloco-tabela .nota { color:var(--muted); font-size:12px; font-style:italic; margin:6px 0 0; }
 .dica-subdividida .shiny-input-container { margin:6px 0 0; }.dica-subdividida .form-group { margin-bottom:0; }
+
+/* Quadro "O que o Ranova faz" recolhível */
+details.painel-apresentacao > summary { cursor:pointer; list-style:none; user-select:none; margin-bottom:0; }
+details.painel-apresentacao > summary::-webkit-details-marker { display:none; }
+details.painel-apresentacao > summary .titulo-legenda { margin:0; display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
+details.painel-apresentacao > summary .titulo-legenda::after { content:""; width:8px; height:8px; border-right:2px solid var(--muted); border-bottom:2px solid var(--muted); transform:rotate(45deg); margin:0 0 3px 6px; transition:transform .2s; order:9; }
+details.painel-apresentacao[open] > summary .titulo-legenda::after { transform:rotate(-135deg); margin-bottom:-3px; }
+details.painel-apresentacao > summary:focus-visible { outline:3px solid rgba(42,92,146,.25); outline-offset:4px; border-radius:8px; }
+.dica-expandir { color:var(--muted); font-size:12px; font-weight:500; letter-spacing:0; text-transform:none; order:10; }
+details.painel-apresentacao[open] .dica-expandir { display:none; }
+details.painel-apresentacao[open] > summary { margin-bottom:10px; }
+.dica-copiar { margin:14px 0 0; font-size:12.5px; }
+
+/* Botão "Copiar tabela" */
+.cabecalho-tabela { display:flex; justify-content:space-between; align-items:center; gap:10px; margin:4px 0 8px; }
+.cabecalho-tabela h3 { margin:0 !important; }
+.btn-copiar { display:inline-flex; align-items:center; gap:3px; flex:none; background:#fff; color:var(--blue); border:1px solid #c5d9eb; border-radius:999px; padding:4px 11px; font-size:11.5px; font-weight:700; cursor:pointer; transition:background .15s, border-color .15s, color .15s; }
+.btn-copiar:hover { background:var(--blue-soft); border-color:#9cb8cf; }
+.btn-copiar:focus-visible { outline:3px solid rgba(42,92,146,.25); outline-offset:2px; }
+.btn-copiar.copiado { color:var(--green); border-color:#a9d3b3; background:#eef8f0; }
+.btn-copiar.falhou { color:#c53535; border-color:#e7b7b7; background:#fdf1f1; }
+@media print { .btn-copiar { display:none; } }

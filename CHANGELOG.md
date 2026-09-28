@@ -8,6 +8,25 @@ e o projeto usa [Versionamento Semântico](https://semver.org/lang/pt-BR/):
 
 ## [Não lançado]
 
+## [2.2.0] - 2026-09-28
+
+### Adicionado
+
+- Botão **Copiar tabela** em todas as tabelas de resultados (ANOVA,
+  pressupostos, discrepantes, médias e desdobramentos) e no relatório HTML.
+  Copia a tabela sem cores e fontes do app: no Word vira uma tabela simples,
+  que assume o estilo do documento; no Excel, cada valor vai para uma célula.
+
+### Alterado
+
+- O quadro "O que o Ranova faz" fica recolhido; um clique no título mostra os
+  recursos e o guia rápido.
+
+### Corrigido
+
+- `cff-version` do `CITATION.cff` volta a 1.2.0 (tinha sido trocado pela
+  versão do app).
+
 ## [2.1.1] - 2026-09-28
 
 ### Alterado

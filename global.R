@@ -671,7 +671,7 @@ tabela_diagnostico <- function(prep, alpha) {
 
 tabela_diagnostico_html <- function(tabela) {
   classe <- function(valor) if (valor == "Atendida") "ranova-ok" else if (valor == "Não atendida") "ranova-alerta" else ""
-  tags$div(
+  div(class = "bloco-tabela", cabecalho_tabela(), tags$div(
     class = "tabela-rolagem",
     tags$table(
       class = "table ranova-diag-table",
@@ -686,7 +686,7 @@ tabela_diagnostico_html <- function(tabela) {
         )
       }))
     )
-  )
+  ))
 }
 
 executar_analise <- function(prep, opcoes) {
@@ -1630,13 +1630,90 @@ png_base64 <- function(grafico, largura, altura, dpi = 150) {
 
 # Tabela HTML no estilo das tabelas do app: cabeçalho azul-marinho, linhas zebradas,
 # células em destaque e última linha de resumo (CV) opcional.
+# Botão que copia a tabela vizinha sem formatação (para colar no Word ou no Excel).
+botao_copiar <- function() {
+  tags$button(type = "button", class = "btn-copiar",
+              title = "Copia a tabela sem as cores e fontes do app. Cole no Word (vira tabela) ou no Excel (vira células).",
+              HTML('<svg class="icone-copiar" viewBox="0 0 16 16" width="13" height="13" aria-hidden="true"><path fill="currentColor" d="M10 1H3.5A1.5 1.5 0 0 0 2 2.5V11h1.5V2.5H10V1zm2.5 3h-6A1.5 1.5 0 0 0 5 5.5v8A1.5 1.5 0 0 0 6.5 15h6a1.5 1.5 0 0 0 1.5-1.5v-8A1.5 1.5 0 0 0 12.5 4zm0 9.5h-6v-8h6v8z"/></svg>'),
+              span(" Copiar tabela"))
+}
+
+# Cabeçalho de uma tabela com título (opcional) e botão de copiar.
+cabecalho_tabela <- function(titulo = NULL) {
+  div(class = "cabecalho-tabela", if (!is.null(titulo)) h3(titulo) else span(), botao_copiar())
+}
+
+# Copia a tabela como HTML simples (tabela sem estilos, para o Word) e como texto
+# separado por tabulação (para o Excel). Usa a área de transferência moderna quando
+# disponível e, fora de HTTPS ou em navegadores antigos, a seleção de um elemento oculto.
+JS_COPIAR_TABELA <- r"---(
+(function() {
+  function texto(celula) { return (celula.innerText || celula.textContent || '').replace(/\s+/g, ' ').trim(); }
+  function escapar(t) { return t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+  function montar(tabela) {
+    var linhas = [], html = '<table border="1" cellspacing="0" cellpadding="4">';
+    tabela.querySelectorAll('tr').forEach(function(tr) {
+      var celulas = [], h = '<tr>';
+      tr.querySelectorAll('th, td').forEach(function(c) {
+        var t = texto(c), tag = c.tagName === 'TH' ? 'th' : 'td';
+        celulas.push(t);
+        h += '<' + tag + '>' + escapar(t) + '</' + tag + '>';
+      });
+      linhas.push(celulas.join('\t'));
+      html += h + '</tr>';
+    });
+    return { tsv: linhas.join('\r\n'), html: html + '</table>' };
+  }
+  function copiarPorSelecao(conteudo) {
+    var area = document.createElement('div');
+    area.contentEditable = 'true';
+    area.style.position = 'fixed'; area.style.left = '-9999px'; area.style.top = '0';
+    area.innerHTML = conteudo.html;
+    document.body.appendChild(area);
+    var faixa = document.createRange(); faixa.selectNodeContents(area);
+    var selecao = window.getSelection(); selecao.removeAllRanges(); selecao.addRange(faixa);
+    var ok = false;
+    try { ok = document.execCommand('copy'); } catch (e) { ok = false; }
+    selecao.removeAllRanges(); document.body.removeChild(area);
+    return ok;
+  }
+  function avisar(botao, ok) {
+    var rotulo = botao.querySelector('span');
+    if (!botao.dataset.original) botao.dataset.original = rotulo.textContent;
+    rotulo.textContent = ok ? ' Copiada! Cole no Word ou no Excel' : ' Não foi possível copiar';
+    botao.classList.add(ok ? 'copiado' : 'falhou');
+    clearTimeout(botao._tempo);
+    botao._tempo = setTimeout(function() {
+      rotulo.textContent = botao.dataset.original;
+      botao.classList.remove('copiado', 'falhou');
+    }, 2200);
+  }
+  document.addEventListener('click', function(evento) {
+    var botao = evento.target.closest('.btn-copiar');
+    if (!botao) return;
+    var bloco = botao.closest('.bloco-tabela');
+    var tabela = bloco && bloco.querySelector('table');
+    if (!tabela) return;
+    var conteudo = montar(tabela);
+    if (navigator.clipboard && window.ClipboardItem && window.isSecureContext) {
+      navigator.clipboard.write([new ClipboardItem({
+        'text/html': new Blob([conteudo.html], { type: 'text/html' }),
+        'text/plain': new Blob([conteudo.tsv], { type: 'text/plain' })
+      })]).then(function() { avisar(botao, true); }, function() { avisar(botao, copiarPorSelecao(conteudo)); });
+    } else {
+      avisar(botao, copiarPorSelecao(conteudo));
+    }
+  });
+})();
+)---"
+
 tabela_relatorio_html <- function(tabela, titulo = NULL, nota = NULL, destaque = NULL, resumo_ultima = FALSE) {
   n_resumo <- if (isTRUE(resumo_ultima)) 1 else if (is.numeric(resumo_ultima)) resumo_ultima else 0
   textos <- as.matrix(tabela)
   textos[is.na(textos)] <- ""
   cabecalhos <- names(tabela)
   div(class = "bloco-tabela",
-    if (!is.null(titulo)) h3(titulo),
+    cabecalho_tabela(titulo),
     div(class = "rolagem",
       tags$table(class = "tabela",
         tags$thead(tags$tr(lapply(cabecalhos, function(cab) tags$th(HTML(gsub("\n", "<br>", htmltools::htmlEscape(cab), fixed = TRUE)))))),
@@ -1733,7 +1810,7 @@ gerar_relatorio_html <- function(resultado, arquivo, fator_linha = NULL, fator_c
     '<head>\n<meta charset="utf-8">\n<meta name="viewport" content="width=device-width, initial-scale=1">\n',
     '<title>', htmltools::htmlEscape(paste("Ranova ·", titulo)), '</title>\n',
     if (!is.null(logo_app)) paste0('<link rel="icon" href="', logo_app, '">\n') else "",
-    '<style>', CSS_RELATORIO_HTML, '</style>\n</head>'
+    '<style>', CSS_RELATORIO_HTML, '</style>\n<script>', JS_COPIAR_TABELA, '</script>\n</head>'
   )
   corpo <- tagList(
     tags$body(
@@ -1893,4 +1970,12 @@ figcaption { color:var(--ink); font-size:12.5px; margin-top:6px; }
   .painel { break-inside:avoid-page; box-shadow:none; } .grade-graficos figure, .grade-diagnostico figure { break-inside:avoid; }
   .cabecalho, .painel, .tabela th, .tabela td.destaque, .linha-resumo td, .kpi, .leitura, .numero { -webkit-print-color-adjust:exact; print-color-adjust:exact; }
 }
+
+.cabecalho-tabela { display:flex; justify-content:space-between; align-items:center; gap:10px; margin:4px 0 8px; }
+.cabecalho-tabela h3 { margin:0; }
+.btn-copiar { display:inline-flex; align-items:center; gap:3px; flex:none; background:#fff; color:#2a5c92; border:1px solid #c5d9eb; border-radius:999px; padding:4px 11px; font:700 11.5px/1.2 inherit; cursor:pointer; }
+.btn-copiar:hover { background:#eaf2fa; }
+.btn-copiar.copiado { color:#4d965d; border-color:#a9d3b3; background:#eef8f0; }
+.btn-copiar.falhou { color:#c53535; border-color:#e7b7b7; background:#fdf1f1; }
+@media print { .btn-copiar { display:none; } }
 "

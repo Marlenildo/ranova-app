@@ -349,7 +349,7 @@ server <- function(input, output, session) {
     escolhas <- stats::setNames(disc$id, sprintf("%s · linha %d · %s", rotulo(prep, disc$variavel), disc$linha, disc$tratamento))
     tagList(
       lista_feitas,
-      div(class = "tabela-rolagem",
+      div(class = "bloco-tabela", cabecalho_tabela(), div(class = "tabela-rolagem",
         tags$table(class = "table ranova-diag-table",
           tags$thead(tags$tr(lapply(c("Variável", "Linha", "Tratamento", "Observado", "Ajustado", "Média das repetições", "t studentizado", "Cook", "Situação"), tags$th))),
           tags$tbody(lapply(seq_len(nrow(disc)), function(i) {
@@ -363,7 +363,7 @@ server <- function(input, output, session) {
             )
           }))
         )
-      ),
+      )),
       div(class = "caixa-substituir",
         checkboxGroupInput("discrepantes_escolhidos", "Substituir pela média das demais repetições do mesmo tratamento:",
                            choices = escolhas, selected = disc$id[grepl("outlier", disc$classificacao, ignore.case = TRUE)], width = "100%"),
