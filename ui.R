@@ -8,6 +8,7 @@ fator_ui <- function(i, nome, niveis) {
 
 ui <- fluidPage(
   tags$head(
+    tags$script(async = NA, src = "https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-3130340973057636", crossorigin = "anonymous"),
     tags$link(rel = "stylesheet", type = "text/css", href = "css/app.css"),
     tags$meta(name = "author", content = "Marlenildo"),
     tags$meta(name = "description", content = "Ranova: análise de variância de experimentos simples, fatoriais e em parcelas subdivididas, em DIC e DBC, com médias, desdobramento, gráficos e relatórios em PDF e HTML."),

@@ -8,6 +8,10 @@ e o projeto usa [Versionamento Semântico](https://semver.org/lang/pt-BR/):
 
 ## [Não lançado]
 
+### Adicionado
+
+- Script do Google AdSense e `ads.txt` para monetização do app.
+
 ## [2.3.1] - 2026-09-28
 
 ### Corrigido
