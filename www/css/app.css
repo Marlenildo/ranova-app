@@ -196,3 +196,7 @@ details.painel-apresentacao[open] > summary { margin-bottom:10px; }
 .btn-copiar.copiado { color:var(--green); border-color:#a9d3b3; background:#eef8f0; }
 .btn-copiar.falhou { color:#c53535; border-color:#e7b7b7; background:#fdf1f1; }
 @media print { .btn-copiar { display:none; } }
+
+/* Cabeçalho em dois níveis (variável sobre F e p) */
+table.tabela th.grupo { padding-bottom:6px; background:linear-gradient(rgba(255,255,255,.5), rgba(255,255,255,.5)) no-repeat center bottom / calc(100% - 14px) 1px, var(--navy); }
+table.tabela th.subcoluna { padding-top:6px; text-align:center; }

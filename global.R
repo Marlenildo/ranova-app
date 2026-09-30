@@ -1190,9 +1190,19 @@ desenhar_tabela <- function(tabela, x, y, largura_max, titulo = NULL, nota = NUL
   textos <- as.matrix(tabela)
   textos[is.na(textos)] <- ""
   cabecalhos <- names(tabela)
+  niveis <- grupos_cabecalho(cabecalhos)
+  # Nas colunas agrupadas, a largura vem da subcoluna; o grupo é garantido depois.
+  rotulo_coluna <- if (is.null(niveis)) cabecalhos else ifelse(niveis$agrupada, niveis$sub, cabecalhos)
   larguras <- vapply(seq_along(cabecalhos), function(j) {
-    max(largura_texto(cabecalhos[j], tamanho - 0.6, TRUE), max(vapply(textos[, j], largura_texto, numeric(1), tamanho = tamanho, negrito = j == 1))) + 0.24
+    max(largura_texto(rotulo_coluna[j], tamanho - 0.6, TRUE), max(vapply(textos[, j], largura_texto, numeric(1), tamanho = tamanho, negrito = j == 1))) + 0.24
   }, numeric(1))
+  if (!is.null(niveis)) {
+    for (gr in niveis$grupos) {
+      faixa <- gr$inicio:gr$fim
+      falta <- largura_texto(gr$rotulo, tamanho - 0.6, TRUE) + 0.24 - sum(larguras[faixa])
+      if (falta > 0) larguras[faixa] <- larguras[faixa] + falta / length(faixa)
+    }
+  }
   if (sum(larguras) > largura_max) {
     fator <- largura_max / sum(larguras)
     larguras <- larguras * fator
@@ -1202,8 +1212,9 @@ desenhar_tabela <- function(tabela, x, y, largura_max, titulo = NULL, nota = NUL
   }
   largura_total <- sum(larguras)
   xs <- x + c(0, cumsum(larguras))
-  linhas_cab <- max(vapply(cabecalhos, function(n) length(strsplit(n, "\n", fixed = TRUE)[[1]]), numeric(1)))
+  linhas_cab <- max(vapply(if (is.null(niveis)) cabecalhos else rotulo_coluna, function(n) length(strsplit(n, "\n", fixed = TRUE)[[1]]), numeric(1)))
   altura_cab <- 0.18 + 0.17 * linhas_cab
+  if (!is.null(niveis)) altura_cab <- 0.2 + 0.17 * (linhas_cab + 1)
 
   filete <- function(y, lwd) {
     grid::grid.lines(x = grid::unit(c(x, x + largura_total), "in"), y = grid::unit(rep(y, 2), "in"),
@@ -1216,10 +1227,33 @@ desenhar_tabela <- function(tabela, x, y, largura_max, titulo = NULL, nota = NUL
                     height = grid::unit(altura_cab, "in"), just = c("left", "top"),
                     gp = grid::gpar(fill = CORES_APP$navy, col = NA))
   }
-  for (j in seq_along(cabecalhos)) {
-    grid::grid.text(cabecalhos[j], x = grid::unit(if (j == 1) xs[j] + 0.1 else xs[j] + larguras[j] / 2, "in"),
-                    y = grid::unit(y - altura_cab / 2, "in"), just = c(if (j == 1) "left" else "center", "center"),
-                    gp = grid::gpar(fontsize = tamanho - 0.6, fontface = "bold", col = if (classico) "#000000" else "#FFFFFF", lineheight = 0.95))
+  cor_cab <- if (classico) "#000000" else "#FFFFFF"
+  gp_cab <- grid::gpar(fontsize = tamanho - 0.6, fontface = "bold", col = cor_cab, lineheight = 0.95)
+  if (is.null(niveis)) {
+    for (j in seq_along(cabecalhos)) {
+      grid::grid.text(cabecalhos[j], x = grid::unit(if (j == 1) xs[j] + 0.1 else xs[j] + larguras[j] / 2, "in"),
+                      y = grid::unit(y - altura_cab / 2, "in"), just = c(if (j == 1) "left" else "center", "center"), gp = gp_cab)
+    }
+  } else {
+    # Grupo (variável) centrado sobre as subcolunas, com um filete só sob ele;
+    # colunas fora de grupos ficam centradas na altura total do cabeçalho.
+    meio <- y - altura_cab / 2
+    y_grupo <- y - 0.2
+    y_filete <- y - 0.36
+    y_sub <- (y_filete + y - altura_cab) / 2
+    for (j in which(!niveis$agrupada)) {
+      grid::grid.text(cabecalhos[j], x = grid::unit(if (j == 1) xs[j] + 0.1 else xs[j] + larguras[j] / 2, "in"),
+                      y = grid::unit(meio, "in"), just = c(if (j == 1) "left" else "center", "center"), gp = gp_cab)
+    }
+    for (gr in niveis$grupos) {
+      x0 <- xs[gr$inicio]; x1 <- xs[gr$fim + 1]
+      grid::grid.text(gr$rotulo, x = grid::unit((x0 + x1) / 2, "in"), y = grid::unit(y_grupo, "in"), gp = gp_cab)
+      grid::grid.lines(x = grid::unit(c(x0 + 0.07, x1 - 0.07), "in"), y = grid::unit(rep(y_filete, 2), "in"),
+                       gp = grid::gpar(col = if (classico) "#000000" else "#FFFFFF", alpha = if (classico) 1 else 0.6, lwd = 0.6))
+      for (j in gr$inicio:gr$fim) {
+        grid::grid.text(niveis$sub[j], x = grid::unit(xs[j] + larguras[j] / 2, "in"), y = grid::unit(y_sub, "in"), gp = gp_cab)
+      }
+    }
   }
   y <- y - altura_cab
   if (classico) filete(y, 0.6)
@@ -1690,17 +1724,26 @@ JS_COPIAR_TABELA <- r"---(
   function texto(celula) { return (celula.innerText || celula.textContent || '').replace(/\s+/g, ' ').trim(); }
   function escapar(t) { return t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
   function montar(tabela) {
-    var linhas = [], html = '<table border="1" cellspacing="0" cellpadding="4">';
-    tabela.querySelectorAll('tr').forEach(function(tr) {
-      var celulas = [], h = '<tr>';
+    // Grade para o texto do Excel: células mescladas (colspan/rowspan) ocupam a
+    // primeira posição e deixam as demais vazias, mantendo as colunas alinhadas.
+    var grade = [], html = '<table border="1" cellspacing="0" cellpadding="4">';
+    tabela.querySelectorAll('tr').forEach(function(tr, i) {
+      grade[i] = grade[i] || [];
+      var h = '<tr>', col = 0;
       tr.querySelectorAll('th, td').forEach(function(c) {
+        while (grade[i][col] !== undefined) col++;
         var t = texto(c), tag = c.tagName === 'TH' ? 'th' : 'td';
-        celulas.push(t);
-        h += '<' + tag + '>' + escapar(t) + '</' + tag + '>';
+        var cs = c.colSpan || 1, rs = c.rowSpan || 1;
+        for (var r = 0; r < rs; r++) {
+          grade[i + r] = grade[i + r] || [];
+          for (var k = 0; k < cs; k++) grade[i + r][col + k] = (r === 0 && k === 0) ? t : '';
+        }
+        col += cs;
+        h += '<' + tag + (cs > 1 ? ' colspan="' + cs + '"' : '') + (rs > 1 ? ' rowspan="' + rs + '"' : '') + '>' + escapar(t) + '</' + tag + '>';
       });
-      linhas.push(celulas.join('\t'));
       html += h + '</tr>';
     });
+    var linhas = grade.map(function(l) { var s = []; for (var k = 0; k < l.length; k++) s.push(l[k] === undefined ? '' : l[k]); return s.join('\t'); });
     return { tsv: linhas.join('\r\n'), html: html + '</table>' };
   }
   function copiarPorSelecao(conteudo) {
@@ -1761,8 +1804,51 @@ CSS_TABELAS_CLASSICAS <- "
 .tabelas-classicas .bloco-tabela h3 { color:#000; }
 .tabelas-classicas .bloco-tabela .nota { color:#000; }
 .tabelas-classicas table.tabela tr:not(.linha-resumo) + tr.linha-resumo td { border-top:1px solid #000 !important; }
+.tabelas-classicas table.tabela th.grupo { border-bottom:0 !important; background:linear-gradient(#000, #000) no-repeat center bottom / calc(100% - 14px) 1px !important; }
 .tabelas-classicas .ranova-pill { background:none !important; color:#000 !important; padding:0; border-radius:0; font-weight:400; font-size:inherit; }
 "
+
+# Cabeçalho em dois níveis: colunas vizinhas cujo nome começa pela mesma linha
+# (por exemplo "Altura\nF" e "Altura\np") viram um grupo "Altura" sobre as
+# subcolunas "F" e "p". Colunas fora de grupos ocupam as duas linhas.
+# Devolve NULL quando não há grupos (cabeçalho de uma linha).
+grupos_cabecalho <- function(cabecalhos) {
+  partes <- strsplit(cabecalhos, "\n", fixed = TRUE)
+  topo <- vapply(partes, function(p) if (length(p) > 1) p[1] else NA_character_, character(1))
+  sub <- vapply(partes, function(p) if (length(p) > 1) paste(p[-1], collapse = "\n") else p[1], character(1))
+  inicio <- which(!is.na(topo) & c(TRUE, is.na(utils::head(topo, -1)) | utils::head(topo, -1) != topo[-1]))
+  grupos <- lapply(inicio, function(i) {
+    fim <- i
+    while (fim < length(topo) && identical(topo[fim + 1], topo[i])) fim <- fim + 1
+    list(inicio = i, fim = fim, rotulo = topo[i])
+  })
+  grupos <- Filter(function(gr) gr$fim > gr$inicio, grupos)
+  if (length(grupos) == 0) return(NULL)
+  agrupada <- rep(FALSE, length(cabecalhos))
+  for (gr in grupos) agrupada[gr$inicio:gr$fim] <- TRUE
+  list(grupos = grupos, agrupada = agrupada, sub = sub)
+}
+
+texto_cabecalho <- function(x) HTML(gsub("\n", "<br>", htmltools::htmlEscape(x), fixed = TRUE))
+
+cabecalho_html <- function(cabecalhos) {
+  niveis <- grupos_cabecalho(cabecalhos)
+  if (is.null(niveis)) return(tags$thead(tags$tr(lapply(cabecalhos, function(cab) tags$th(texto_cabecalho(cab))))))
+  linha1 <- list()
+  j <- 1
+  while (j <= length(cabecalhos)) {
+    gr <- Filter(function(g) g$inicio == j, niveis$grupos)
+    if (length(gr) == 1) {
+      linha1[[length(linha1) + 1]] <- tags$th(class = "grupo", colspan = gr[[1]]$fim - j + 1, texto_cabecalho(gr[[1]]$rotulo))
+      j <- gr[[1]]$fim + 1
+    } else {
+      linha1[[length(linha1) + 1]] <- tags$th(rowspan = 2, texto_cabecalho(cabecalhos[j]))
+      j <- j + 1
+    }
+  }
+  linha2 <- lapply(which(niveis$agrupada), function(j) tags$th(class = "subcoluna", texto_cabecalho(niveis$sub[j])))
+  tags$thead(tags$tr(linha1), tags$tr(linha2))
+}
 
 tabela_relatorio_html <- function(tabela, titulo = NULL, nota = NULL, destaque = NULL, resumo_ultima = FALSE) {
   n_resumo <- if (isTRUE(resumo_ultima)) 1 else if (is.numeric(resumo_ultima)) resumo_ultima else 0
@@ -1773,7 +1859,7 @@ tabela_relatorio_html <- function(tabela, titulo = NULL, nota = NULL, destaque =
     cabecalho_tabela(titulo),
     div(class = "rolagem",
       tags$table(class = "tabela",
-        tags$thead(tags$tr(lapply(cabecalhos, function(cab) tags$th(HTML(gsub("\n", "<br>", htmltools::htmlEscape(cab), fixed = TRUE)))))),
+        cabecalho_html(cabecalhos),
         tags$tbody(lapply(seq_len(nrow(textos)), function(i) {
           tags$tr(class = if (i > nrow(textos) - n_resumo) "linha-resumo",
             lapply(seq_along(cabecalhos), function(j) {
@@ -2037,4 +2123,6 @@ figcaption { color:var(--ink); font-size:12.5px; margin-top:6px; }
 .btn-copiar.copiado { color:#4d965d; border-color:#a9d3b3; background:#eef8f0; }
 .btn-copiar.falhou { color:#c53535; border-color:#e7b7b7; background:#fdf1f1; }
 @media print { .btn-copiar { display:none; } }
+.tabela th.grupo { padding-bottom:6px; background:linear-gradient(rgba(255,255,255,.5), rgba(255,255,255,.5)) no-repeat center bottom / calc(100% - 14px) 1px, var(--navy); }
+.tabela th.subcoluna { padding-top:6px; text-align:center; }
 "
