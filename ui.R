@@ -243,7 +243,9 @@ ui <- fluidPage(
 
   div(class = "rodape-app",
     span("Desenvolvido por"),
-    tags$img(src = "img/logo_marlenildo.png", class = "logo-rodape", alt = "Marlenildo.online"),
+    tags$a(href = "https://marlenildo.online", target = "_blank", rel = "noopener", class = "link-logo-rodape",
+           title = "Conheça outros apps em marlenildo.online",
+           tags$img(src = "img/logo_marlenildo.png", class = "logo-rodape", alt = "Marlenildo.online")),
     span(class = "versao-app",
       tags$a(href = "https://github.com/Marlenildo/ranova-app/blob/main/CHANGELOG.md", target = "_blank", rel = "noopener",
              title = "Ver novidades desta versão", paste0("Ranova v", VERSAO_APP)),

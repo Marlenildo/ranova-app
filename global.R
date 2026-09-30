@@ -1960,7 +1960,8 @@ gerar_relatorio_html <- function(resultado, arquivo, fator_linha = NULL, fator_c
       ),
       tags$footer(class = "rodape",
         span("Desenvolvido por"),
-        if (!is.null(logo_autor)) tags$img(src = logo_autor, alt = "Marlenildo.online"),
+        if (!is.null(logo_autor)) tags$a(href = "https://marlenildo.online", target = "_blank", rel = "noopener",
+          tags$img(src = logo_autor, alt = "Marlenildo.online")),
         span(class = "versao", paste0("Ranova v", VERSAO_APP, " · pacote ranova ", VERSAO_PACOTE)),
         div(class = "privacidade", TEXTO_PRIVACIDADE)
       )

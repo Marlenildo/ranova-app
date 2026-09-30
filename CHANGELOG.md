@@ -15,7 +15,8 @@ e o projeto usa [Versionamento Semântico](https://semver.org/lang/pt-BR/):
 ### Alterado
 
 - Assinatura do autor no rodapé (e nos relatórios) passa a usar a nova logo
-  Marlenildo.online, a mesma do site, sem o slogan "Soluções em Curso".
+  Marlenildo.online, a mesma do site, sem o slogan "Soluções em Curso". Clicar
+  na logo abre https://marlenildo.online em nova aba.
 
 ## [2.3.1] - 2026-09-28
 

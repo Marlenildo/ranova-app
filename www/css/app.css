@@ -23,6 +23,7 @@ input[type="checkbox"],input[type="radio"] { width:16px; height:16px; margin:0 7
 /* Logos */
 .logo-app { width:78px; height:78px; flex:none; filter:drop-shadow(0 4px 10px rgba(23,59,91,.18)); }
 .rodape-app { display:flex; align-items:center; justify-content:center; gap:10px; padding:14px 0 4px; }.logo-rodape { height:26px; width:auto; }
+.link-logo-rodape { display:inline-flex; line-height:0; border-radius:4px; transition:opacity .15s; }.link-logo-rodape:hover { opacity:.8; }
 
 /* Marca */
 .cabecalho-app .titulo { font-size:36px; letter-spacing:-.8px; margin-top:0; }.descricao-app { color:var(--blue); font-size:16px; font-weight:800; margin-top:2px; }
