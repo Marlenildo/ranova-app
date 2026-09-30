@@ -1640,7 +1640,7 @@ gerar_relatorio_pdf <- function(resultado, arquivo, fator_linha = NULL, fator_co
     grid::grid.text("Desenvolvido por", x = grid::unit(margem, "in"), y = grid::unit(0.33, "in"), just = c("left", "center"),
                     gp = grid::gpar(fontsize = 7.2, col = "#587086"))
     if (!is.null(logo_autor)) {
-      alt <- 0.36
+      alt <- 0.2
       grid::grid.raster(logo_autor, x = grid::unit(margem + 0.95, "in"), y = grid::unit(0.33, "in"),
                         width = grid::unit(alt * ncol(logo_autor) / nrow(logo_autor), "in"), height = grid::unit(alt, "in"), just = c("left", "center"))
     }
@@ -1960,7 +1960,8 @@ gerar_relatorio_html <- function(resultado, arquivo, fator_linha = NULL, fator_c
       ),
       tags$footer(class = "rodape",
         span("Desenvolvido por"),
-        if (!is.null(logo_autor)) tags$img(src = logo_autor, alt = "Marlenildo Soluções em Curso"),
+        if (!is.null(logo_autor)) tags$a(href = "https://marlenildo.online", target = "_blank", rel = "noopener",
+          tags$img(src = logo_autor, alt = "Marlenildo.online")),
         span(class = "versao", paste0("Ranova v", VERSAO_APP, " · pacote ranova ", VERSAO_PACOTE)),
         div(class = "privacidade", TEXTO_PRIVACIDADE)
       )
@@ -2020,7 +2021,7 @@ figcaption { color:var(--ink); font-size:12.5px; margin-top:6px; }
 .grade-diagnostico { display:grid; grid-template-columns:repeat(2,1fr); gap:14px; }
 .figura-painel { max-width:900px; margin:0 auto; }
 .rodape { display:flex; flex-wrap:wrap; align-items:center; justify-content:center; gap:10px; color:#718498; font-size:12px; padding:10px 20px 28px; }
-.rodape img { height:40px; }.rodape .versao { border-left:1px solid var(--line); padding-left:10px; font-weight:700; }
+.rodape img { height:24px; }.rodape .versao { border-left:1px solid var(--line); padding-left:10px; font-weight:700; }
 .rodape .privacidade { flex-basis:100%; text-align:center; max-width:760px; }
 @media (max-width:820px) { .kpis { grid-template-columns:repeat(2,1fr); } .duas-colunas, .grade-graficos, .grade-diagnostico { grid-template-columns:1fr; } .cabecalho { position:static; } .titulo-relatorio h1 { font-size:24px; } }
 @media print {
