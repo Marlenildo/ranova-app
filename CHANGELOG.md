@@ -8,6 +8,17 @@ e o projeto usa [Versionamento Semântico](https://semver.org/lang/pt-BR/):
 
 ## [Não lançado]
 
+## [2.3.2] - 2026-09-30
+
+### Corrigido
+
+- Quadro da ANOVA no formato "F e p em colunas": o nome de cada variável
+  aparece uma única vez, centrado sobre as colunas F e p, com um filete sob a
+  variável (cabeçalho em dois níveis), em vez de se repetir sobre cada coluna.
+  Vale para os estilos moderno e clássico, no app, no PDF e no HTML; o botão
+  "Copiar tabela" mantém as células mescladas no Word e as colunas alinhadas no
+  Excel.
+
 ### Adicionado
 
 - Script do Google AdSense e `ads.txt` para monetização do app.

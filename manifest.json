@@ -3767,22 +3767,22 @@
       "checksum": "b66ef581ddaa5fb4f47636c6e39b613a"
     },
     "DESCRIPTION": {
-      "checksum": "8ce71450182d1cdadb7ab71ad43e64e3"
+      "checksum": "8d3db6824b93ea9181388ad7fad976bc"
     },
     "global.R": {
-      "checksum": "090a99cb619b16195971ff9e2840cc5f"
+      "checksum": "b2f93b2686061c632af67110722d6428"
     },
     "server.R": {
       "checksum": "d337dfa587c69d6a04e02b9f4401a03f"
     },
     "ui.R": {
-      "checksum": "e74db8af8cd3b521658c851d601ef9ec"
+      "checksum": "6228b386b40e11ca4790f84990a2fcc5"
     },
     "www/ads.txt": {
       "checksum": "8c1ec6b15a2f0581c05590efa611d39f"
     },
     "www/css/app.css": {
-      "checksum": "06724713c17167ea2839860fc9b2116c"
+      "checksum": "44d8761761e8823af3ba998ddb98bf78"
     },
     "www/img/favicon.png": {
       "checksum": "71441602d990ee73fedbe49dd8d453df"
